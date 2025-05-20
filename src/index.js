@@ -12,3 +12,5 @@ root.render(
 );
 
 reportWebVitals();
+// to jest najnowsza wersja pliku 
+
