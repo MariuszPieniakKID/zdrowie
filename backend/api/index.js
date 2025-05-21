@@ -17,7 +17,7 @@ const app = express();
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 app.get('/', (req, res) => {
-  res.json({ status: 'Backend działa! i jest git' });
+  res.json({ status: 'Backend działa! na index' });
 });
 
 app.use(cors({
