@@ -204,7 +204,7 @@ const handleDeleteUserData = async () => {
       setChartData({ labels: [], datasets: [] });
       setSummary('');
       setView('main');
-      alert('Dane zostaĹy pomyĹlnie usuniÄte.');
+      alert('Dane zostały pomyślnie usunięte');
     } catch (err) {
       setError(err.response?.data?.error || 'Błąd usuwania danych');
     } finally {
@@ -859,7 +859,7 @@ const handleLogout = () => {
                 fontWeight: '500',
                 color: '#4b5563'
               }}>
-                ImiÄ i nazwisko
+                Imię i nazwisko
               </label>
               <input
                 id="name"
@@ -924,7 +924,7 @@ const handleLogout = () => {
             
             <div style={{ textAlign: 'center', marginTop: '16px' }}>
               <span style={{ fontSize: '14px', color: '#6b7280' }}>
-                Masz juĹź konto?{' '}
+                Masz już konto?{' '}
               </span>
               <button
                 type="button"
