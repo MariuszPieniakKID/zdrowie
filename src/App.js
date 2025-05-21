@@ -65,7 +65,7 @@ function App() {
   useEffect(() => {
     const checkExistingAnalysis = async () => {
       try {
-        const res = await axios.get(`http://localhost:3010/api/documents/${user.id}`);
+        const res = await axios.get(`https://zdrowie-backend.vercel.app/api/documents/${user.id}`);
         if (res.data.documents.length > 0 && res.data.documents[0].analysis) {
           setSummary(res.data.documents[0].analysis);
         }
@@ -89,7 +89,7 @@ function App() {
 
   const fetchFiles = async () => {
     try {
-      const res = await axios.get(`http://localhost:3010/api/documents/${user.id}?page=${files.page}`);
+      const res = await axios.get(`https://zdrowie-backend.vercel.app/api/documents/${user.id}?page=${files.page}`);
       setFiles(res.data);
     } catch (err) {
       setError('Błąd pobierania plików');
@@ -98,7 +98,7 @@ function App() {
 
   const fetchParameters = async () => {
     try {
-      const res = await axios.get(`http://localhost:3010/api/parameters/${user.id}`);
+      const res = await axios.get(`https://zdrowie-backend.vercel.app/api/parameters/${user.id}`);
       setParameters(res.data);
       setSelectedParams(res.data.map(p => p.parameter_name));
     } catch (err) {
@@ -118,7 +118,7 @@ function App() {
     }
     setLoading(true);
     try {
-      const res = await axios.post('http://localhost:3010/api/login', {
+      const res = await axios.post('https://zdrowie-backend.vercel.app/api/login', {
         phone: sanitizePhone(loginPhone)
       });
       setUser(res.data.user);
@@ -145,7 +145,7 @@ function App() {
     }
     setLoading(true);
     try {
-      await axios.post('http://localhost:3010/api/login', {
+      await axios.post('https://zdrowie-backend.vercel.app/api/login', {
         ...registerForm,
         phone: sanitizePhone(registerForm.phone)
       });
@@ -171,7 +171,7 @@ function App() {
     }
     setLoading(true);
     try {
-      await axios.put(`http://localhost:3010/api/user/${user.id}`, {
+      await axios.put(`https://zdrowie-backend.vercel.app/api/user/${user.id}`, {
         ...editForm,
         phone: sanitizePhone(editForm.phone)
       });
@@ -190,7 +190,7 @@ const handleDeleteUserData = async () => {
     setError('');
     setLoading(true);
     try {
-      await axios.delete(`http://localhost:3010/api/user-data/${user.id}`);
+      await axios.delete(`https://zdrowie-backend.vercel.app/api/user-data/${user.id}`);
       // OdĹwieĹźamy dane po usuniÄciu
       setFiles({ documents: [], total: 0, page: 1, totalPages: 1 });
       setParameters([]);
@@ -223,7 +223,7 @@ const handleDeleteUserData = async () => {
     formData.append('medications', medications);
 
     try {
-      await axios.post('http://localhost:3010/api/upload', formData, {
+      await axios.post('https://zdrowie-backend.vercel.app/api/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
@@ -248,7 +248,7 @@ const handleDeleteUserData = async () => {
     setSelectedDoc(doc);
     setAnalysis('');
     try {
-      const res = await axios.post('http://localhost:3010/api/analyze-file', {
+      const res = await axios.post('https://zdrowie-backend.vercel.app/api/analyze-file', {
         document_id: doc.id,
         user_id: user.id
       });
@@ -273,7 +273,7 @@ const handleDeleteUserData = async () => {
     setError('');
     setLoading(true);
     try {
-      await axios.delete(`http://localhost:3010/api/document/${docId}`);
+      await axios.delete(`https://zdrowie-backend.vercel.app/api/document/${docId}`);
       await fetchFiles();
       await fetchParameters();
       setSelectedDoc(null);
@@ -338,7 +338,7 @@ const handleDeleteUserData = async () => {
     setError('');
     setIsAnalyzing(true);
     try {
-      const res = await axios.post('http://localhost:3010/api/summarize', {
+      const res = await axios.post('https://zdrowie-backend.vercel.app/api/summarize', {
         userId: user.id,
         parameters: parameters.filter(p => selectedParams.includes(p.parameter_name))
       });
