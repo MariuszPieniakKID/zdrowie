@@ -70,8 +70,9 @@ console.log(`Port: ${dbConfig.port}`);
 })();
 
 // Konfiguracja katalogów
-const uploadDir = path.join(__dirname, 'uploads');
-const OUTPUT_DIR = path.join(__dirname, 'converted');
+const uploadDir = '/tmp/uploads';
+const OUTPUT_DIR = '/tmp/converted';
+
 
 // Upewnij się, że katalogi istnieją
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
