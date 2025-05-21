@@ -420,6 +420,10 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Coś poszło nie tak', details: err.message });
 });
 
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Serwer działa na porcie ${PORT}`);
+});
 
 module.exports = app;
 
