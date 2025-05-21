@@ -1,6 +1,6 @@
 require('dotenv').config();
 const express = require('express');
-const mysql = require('mysql2/promise');
+const { Pool } = require('pg');
 const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
@@ -30,56 +30,24 @@ app.use(cors({
 
 app.use(express.json());
 
-//const dbConfig = {
-  //host: '127.0.0.1',
-  //user: 'root',
-  //password: 'Mariusz123',
-  //database: 'wyniki_db',
-  //waitForConnections: true,
-  //connectionLimit: 10,
-  //queueLimit: 0
-//};
-const dbConfig = {
+const pool = new Pool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  port: process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
-};
-
-
-
-const pool = mysql.createPool(dbConfig);
-console.log('Próba połączenia z bazą danych MySQL z następującymi danymi:');
-console.log(`Host: ${dbConfig.host}`);
-console.log(`User: ${dbConfig.user}`);
-console.log(`Database: ${dbConfig.database}`);
-console.log(`Port: ${dbConfig.port}`);
-
-(async () => {
-  try {
-    const connection = await pool.getConnection();
-    console.log('Połączenie z bazą danych MySQL zostało nawiązane!');
-    await connection.release();
-  } catch (err) {
-    console.error('Błąd połączenia z bazą danych MySQL:', err.message);
-  }
-})();
+  port: process.env.DB_PORT ? Number(process.env.DB_PORT) : 5432,
+  ssl: { rejectUnauthorized: false } // Neon wymaga SSL
+});
 
 // Konfiguracja katalogów
 const uploadDir = '/tmp/uploads';
 const OUTPUT_DIR = '/tmp/converted';
 
-
 // Upewnij się, że katalogi istnieją
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
-
-// Funkcja do przetwarzania PDF przez OCR z Tesseract (z test.js)
+// Funkcja do przetwarzania PDF przez OCR z Tesseract
 async function extractTextFromPDF(filePath) {
   try {
     console.log('===== UŻYWAM METODY TESSERACT Z TEST.JS =====');
@@ -133,7 +101,7 @@ app.post('/api/register', async (req, res) => {
   console.log('[REGISTER] Próba rejestracji:', { name, email, phone, sanitizedPhone });
   try {
     await pool.query(
-      'INSERT INTO users (name, email, phone) VALUES (?, ?, ?)',
+      'INSERT INTO users (name, email, phone) VALUES ($1, $2, $3)',
       [name, email, sanitizedPhone]
     );
     console.log('[REGISTER] Rejestracja UDANA:', sanitizedPhone);
@@ -144,14 +112,13 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
-
 app.post('/api/login', async (req, res) => {
   const { phone } = req.body;
   const sanitizedPhone = sanitizePhone(phone);
   console.log('[LOGIN] Próba logowania:', { phone, sanitizedPhone });
   try {
-    const [rows] = await pool.query(
-      'SELECT * FROM users WHERE phone = ?',
+    const { rows } = await pool.query(
+      'SELECT * FROM users WHERE phone = $1',
       [sanitizedPhone]
     );
     if (rows.length === 0) {
@@ -166,11 +133,10 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-
 app.get('/api/user/:id', async (req, res) => {
   try {
-    const [rows] = await pool.query(
-      'SELECT * FROM users WHERE id = ?',
+    const { rows } = await pool.query(
+      'SELECT * FROM users WHERE id = $1',
       [req.params.id]
     );
     if (rows.length === 0) {
@@ -185,13 +151,12 @@ app.get('/api/user/:id', async (req, res) => {
 // Endpointy plików
 app.post('/api/upload', upload.single('pdf'), async (req, res) => {
   const { user_id, symptoms, chronic_diseases, medications } = req.body;
-
   try {
-    const [result] = await pool.query(
-      'INSERT INTO documents (user_id, filename, filepath, symptoms, chronic_diseases, medications) VALUES (?, ?, ?, ?, ?, ?)',
+    const result = await pool.query(
+      'INSERT INTO documents (user_id, filename, filepath, symptoms, chronic_diseases, medications) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
       [user_id, req.file.originalname, req.file.filename, symptoms, chronic_diseases, medications]
     );
-    res.json({ message: 'Plik przesłany', documentId: result.insertId });
+    res.json({ message: 'Plik przesłany', documentId: result.rows[0].id });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -202,15 +167,16 @@ app.get('/api/documents/:user_id', async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = 3;
     const offset = (page - 1) * limit;
-    const [docs] = await pool.query(
-      'SELECT * FROM documents WHERE user_id=? ORDER BY upload_date DESC LIMIT ? OFFSET ?',
+    const { rows: docs } = await pool.query(
+      'SELECT * FROM documents WHERE user_id = $1 ORDER BY upload_date DESC LIMIT $2 OFFSET $3',
       [req.params.user_id, limit, offset]
     );
-    const [total] = await pool.query(
-      'SELECT COUNT(*) as count FROM documents WHERE user_id=?',
+    const { rows: totalRows } = await pool.query(
+      'SELECT COUNT(*) as count FROM documents WHERE user_id = $1',
       [req.params.user_id]
     );
-    res.json({ documents: docs, total: total[0].count, page, totalPages: Math.ceil(total[0].count / limit) });
+    const total = parseInt(totalRows[0].count, 10);
+    res.json({ documents: docs, total, page, totalPages: Math.ceil(total / limit) });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -218,7 +184,7 @@ app.get('/api/documents/:user_id', async (req, res) => {
 
 app.delete('/api/document/:id', async (req, res) => {
   try {
-    const [docs] = await pool.query('SELECT * FROM documents WHERE id = ?', [req.params.id]);
+    const { rows: docs } = await pool.query('SELECT * FROM documents WHERE id = $1', [req.params.id]);
     if (docs.length === 0) {
       return res.status(404).json({ error: 'Nie znaleziono dokumentu' });
     }
@@ -228,8 +194,8 @@ app.delete('/api/document/:id', async (req, res) => {
       fs.unlinkSync(filePath);
     }
 
-    await pool.query('DELETE FROM parameters WHERE document_id = ?', [req.params.id]);
-    await pool.query('DELETE FROM documents WHERE id = ?', [req.params.id]);
+    await pool.query('DELETE FROM parameters WHERE document_id = $1', [req.params.id]);
+    await pool.query('DELETE FROM documents WHERE id = $1', [req.params.id]);
 
     res.json({ message: 'Dokument usunięty' });
   } catch (error) {
@@ -240,8 +206,8 @@ app.delete('/api/document/:id', async (req, res) => {
 // Endpointy parametrów
 app.get('/api/parameters/:user_id', async (req, res) => {
   try {
-    const [params] = await pool.query(
-      'SELECT * FROM parameters WHERE user_id=? ORDER BY measurement_date',
+    const { rows: params } = await pool.query(
+      'SELECT * FROM parameters WHERE user_id = $1 ORDER BY measurement_date',
       [req.params.user_id]
     );
     res.json(params);
@@ -253,8 +219,8 @@ app.get('/api/parameters/:user_id', async (req, res) => {
 app.post('/api/analyze-file', async (req, res) => {
   const { document_id, user_id } = req.body;
   try {
-    const [docs] = await pool.query(
-      'SELECT * FROM documents WHERE id=? AND user_id=?',
+    const { rows: docs } = await pool.query(
+      'SELECT * FROM documents WHERE id = $1 AND user_id = $2',
       [document_id, user_id]
     );
     if (!docs.length) return res.status(404).json({ error: 'Nie znaleziono pliku' });
@@ -275,8 +241,7 @@ Podaj wyniki badań w tabeli HTML (<table>) z następującymi kolumnami: Paramet
 
 Oto tekst z badania (wyniki laboratoryjne):
 ${text}
-
-Jeśli w tekście nie ma wyraźnych dat badań, użyj daty z nazwy pliku lub przyjmij dzisiejszą datę.
+... Jeśli w tekście nie ma wyraźnych dat badań, użyj daty z nazwy pliku lub przyjmij dzisiejszą datę.
 Jeśli w tekście nie ma wyraźnych wartości referencyjnych, dodaj standardowe zakresy referencyjne w komentarzu.
 Jeśli jakieś wartości są poza zakresem referencyjnym, wyraźnie to zaznacz w komentarzu.`;
 
@@ -291,7 +256,6 @@ Jeśli jakieś wartości są poza zakresem referencyjnym, wyraźnie to zaznacz w
       ],
       temperature: 0.2,
     });
-
     const analysis = completion.choices[0].message.content;
 
     // Parsowanie tabeli HTML
@@ -310,7 +274,7 @@ Jeśli jakieś wartości są poza zakresem referencyjnym, wyraźnie to zaznacz w
         if (paramName && paramName !== 'Podsumowanie' && paramValue && paramDate) {
           try {
             await pool.query(
-              'INSERT INTO parameters (user_id, document_id, parameter_name, parameter_value, parameter_comment, measurement_date) VALUES (?, ?, ?, ?, ?, ?)',
+              'INSERT INTO parameters (user_id, document_id, parameter_name, parameter_value, parameter_comment, measurement_date) VALUES ($1, $2, $3, $4, $5, $6)',
               [user_id, document_id, paramName, paramValue, paramComment, paramDate]
             );
           } catch (err) {
@@ -321,7 +285,7 @@ Jeśli jakieś wartości są poza zakresem referencyjnym, wyraźnie to zaznacz w
     }
 
     await pool.query(
-      'UPDATE documents SET analysis = ? WHERE id = ?',
+      'UPDATE documents SET analysis = $1 WHERE id = $2',
       [analysis, document_id]
     );
 
@@ -363,25 +327,24 @@ app.post('/api/summarize', async (req, res) => {
   }
 });
 
-// Endpoint do usuwania danych użytkownika
+// Endpoint do usuwania danych użytkownika (transakcja)
 app.delete('/api/user-data/:id', async (req, res) => {
   const userId = req.params.id;
-  const connection = await pool.getConnection();
+  const client = await pool.connect();
 
   try {
-    await connection.beginTransaction();
+    await client.query('BEGIN');
 
     // Pobierz ścieżki do plików przed ich usunięciem z bazy
-    const [documents] = await connection.query(
-      'SELECT filepath FROM documents WHERE user_id = ?',
+    const { rows: documents } = await client.query(
+      'SELECT filepath FROM documents WHERE user_id = $1',
       [userId]
     );
 
     // Usuń parametry użytkownika
-    await connection.query('DELETE FROM parameters WHERE user_id = ?', [userId]);
-
+    await client.query('DELETE FROM parameters WHERE user_id = $1', [userId]);
     // Usuń dokumenty użytkownika z bazy danych
-    await connection.query('DELETE FROM documents WHERE user_id = ?', [userId]);
+    await client.query('DELETE FROM documents WHERE user_id = $1', [userId]);
 
     // Usuń fizyczne pliki z serwera
     for (const doc of documents) {
@@ -391,13 +354,13 @@ app.delete('/api/user-data/:id', async (req, res) => {
       }
     }
 
-    await connection.commit();
+    await client.query('COMMIT');
     res.json({ message: 'Dane użytkownika zostały pomyślnie usunięte' });
   } catch (error) {
-    await connection.rollback();
+    await client.query('ROLLBACK');
     res.status(500).json({ error: error.message });
   } finally {
-    connection.release();
+    client.release();
   }
 });
 
@@ -411,7 +374,6 @@ app.use((err, req, res, next) => {
 process.on('unhandledRejection', (reason, promise) => {
   console.error('Nieobsłużone odrzucenie obietnicy:', reason);
 });
-
 process.on('uncaughtException', (error) => {
   console.error('Nieobsłużony wyjątek:', error);
 });
@@ -426,4 +388,3 @@ app.listen(PORT, '0.0.0.0', () => {
 });
 
 module.exports = app;
-
