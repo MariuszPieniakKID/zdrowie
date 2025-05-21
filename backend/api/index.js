@@ -14,15 +14,25 @@ const util = require('util');
 const execPromise = util.promisify(exec);
 
 const app = express();
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+// Inicjalizacja OpenAI
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 console.log('[OPENAI] Inicjalizacja klienta OpenAI. Klucz API obecny:', !!process.env.OPENAI_API_KEY);
 
-
-app.get('/', (req, res) => {
-  res.json({ status: 'Backend działa! na index' });
+// Pool do PostgreSQL (Neon)
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
 });
 
+// Katalogi tymczasowe na pliki
+const uploadDir = '/tmp/uploads';
+const OUTPUT_DIR = '/tmp/converted';
+
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+
+// Middleware
 app.use(cors({
   origin: [
     'http://localhost:3000',
@@ -30,26 +40,24 @@ app.use(cors({
   ],
   credentials: true
 }));
-
 app.use(express.json());
 
-
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+// Strona główna
+app.get('/', (req, res) => {
+  res.json({ status: 'Backend działa! na index' });
 });
 
+// Multer do uploadu PDF
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadDir),
+  filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`)
+});
+const upload = multer({ storage });
 
-// Konfiguracja katalogów
-const uploadDir = '/tmp/uploads';
-const OUTPUT_DIR = '/tmp/converted';
+// Pomocnicza funkcja do czyszczenia numerów telefonów
+const sanitizePhone = (phone) => phone.replace(/[-\s]/g, '');
 
-// Upewnij się, że katalogi istnieją
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-
-// Funkcja do przetwarzania PDF przez OCR z Tesseract
+// OCR PDF z Tesseract
 async function extractTextFromPDF(filePath) {
   try {
     console.log('===== UŻYWAM METODY TESSERACT Z TEST.JS =====');
@@ -87,16 +95,7 @@ async function extractTextFromPDF(filePath) {
   }
 }
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`)
-});
-
-const upload = multer({ storage });
-
-const sanitizePhone = (phone) => phone.replace(/[-\s]/g, '');
-
-// Endpointy użytkowników
+// --- Endpointy użytkowników ---
 app.post('/api/register', async (req, res) => {
   const { name, email, phone } = req.body;
   const sanitizedPhone = sanitizePhone(phone);
@@ -150,7 +149,7 @@ app.get('/api/user/:id', async (req, res) => {
   }
 });
 
-// Endpointy plików
+// --- Endpointy plików ---
 app.post('/api/upload', upload.single('pdf'), async (req, res) => {
   const { user_id, symptoms, chronic_diseases, medications } = req.body;
   try {
@@ -205,7 +204,7 @@ app.delete('/api/document/:id', async (req, res) => {
   }
 });
 
-// Endpointy parametrów
+// --- Endpointy parametrów ---
 app.get('/api/parameters/:user_id', async (req, res) => {
   try {
     const { rows: params } = await pool.query(
@@ -218,6 +217,7 @@ app.get('/api/parameters/:user_id', async (req, res) => {
   }
 });
 
+// --- Analiza pliku przez OpenAI ---
 app.post('/api/analyze-file', async (req, res) => {
   const { document_id, user_id } = req.body;
   try {
@@ -229,14 +229,14 @@ app.post('/api/analyze-file', async (req, res) => {
 
     const filePath = path.join(uploadDir, docs[0].filepath);
 
-    // Używamy naszej funkcji OCR z Tesseract
+    // OCR
     console.log('Rozpoczynam ekstrakcję tekstu z PDF używając TESSERACT...');
     const text = await extractTextFromPDF(filePath);
     console.log('Ekstrakcja zakończona, długość tekstu:', text.length);
 
     const { symptoms, chronic_diseases, medications } = docs[0];
 
-    // Ulepszony prompt dla ChatGPT
+    // Prompt do ChatGPT
     const prompt = `Biorąc pod uwagę moje symptomy: ${symptoms || 'brak'}, oraz choroby przewlekłe: ${chronic_diseases || 'brak'}, oraz leki jakie biorę: ${medications || 'brak'}, przeanalizuj poniższe wyniki badań laboratoryjnych.
 
 Podaj wyniki badań w tabeli HTML (<table>) z następującymi kolumnami: Parametr, Wartość, Komentarz, Data badania (YYYY-MM-DD).
@@ -248,28 +248,27 @@ Jeśli w tekście nie ma wyraźnych wartości referencyjnych, dodaj standardowe 
 Jeśli jakieś wartości są poza zakresem referencyjnym, wyraźnie to zaznacz w komentarzu.`;
 
     console.log('[OPENAI] Próba połączenia z ChatGPT, model: gpt-4.1');
-console.log('[OPENAI] Prompt (surowe dane):', prompt);
+    console.log('[OPENAI] Prompt (surowe dane):', prompt);
 
-let analysis;
-try {
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4.1",
-    messages: [
-      {
-        role: "system",
-        content: "Jesteś doświadczonym lekarzem, który analizuje wyniki badań laboratoryjnych. Przeprowadzasz dokładną analizę tych badań biorąc pod uwagę choroby, leki i objawy pacjenta. Zwracasz szczególną uwagę na nieprawidłowe wyniki. Zachowujesz profesjonalny i empatyczny ton. Potrafisz odczytać i zinterpretować nawet niewyraźne lub częściowo uszkodzone wyniki badań. Jeśli dane są niekompletne lub nieczytelne, zaznaczasz to w komentarzu."
-      },
-      { role: "user", content: prompt }
-    ],
-    temperature: 0.2,
-  });
-  analysis = completion.choices[0].message.content;
-  console.log('[OPENAI] Odpowiedź ChatGPT:', analysis);
-} catch (err) {
-  console.error('[OPENAI] Błąd połączenia z ChatGPT:', err);
-  throw err;
-}
-
+    let analysis;
+    try {
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4.1",
+        messages: [
+          {
+            role: "system",
+            content: "Jesteś doświadczonym lekarzem, który analizuje wyniki badań laboratoryjnych. Przeprowadzasz dokładną analizę tych badań biorąc pod uwagę choroby, leki i objawy pacjenta. Zwracasz szczególną uwagę na nieprawidłowe wyniki. Zachowujesz profesjonalny i empatyczny ton. Potrafisz odczytać i zinterpretować nawet niewyraźne lub częściowo uszkodzone wyniki badań. Jeśli dane są niekompletne lub nieczytelne, zaznaczasz to w komentarzu."
+          },
+          { role: "user", content: prompt }
+        ],
+        temperature: 0.2,
+      });
+      analysis = completion.choices[0].message.content;
+      console.log('[OPENAI] Odpowiedź ChatGPT:', analysis);
+    } catch (err) {
+      console.error('[OPENAI] Błąd połączenia z ChatGPT:', err);
+      throw err;
+    }
 
     // Parsowanie tabeli HTML
     const $ = cheerio.load(analysis);
@@ -309,6 +308,7 @@ try {
   }
 });
 
+// --- Podsumowanie parametrów przez OpenAI ---
 app.post('/api/summarize', async (req, res) => {
   const { userId, parameters } = req.body;
 
@@ -323,25 +323,24 @@ app.post('/api/summarize', async (req, res) => {
 
     const prompt = `Na podstawie tych parametrów zdrowotnych, przygotuj krótkie podsumowanie stanu zdrowia pacjenta, wskazując na potencjalne problemy i zalecenia. Użyj formatowania HTML dla lepszej czytelności.\n\n${paramsText}`;
 
-console.log('[OPENAI] Prompt (surowe dane):', prompt);
+    console.log('[OPENAI] Prompt (surowe dane):', prompt);
 
-let summary;
-try {
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4",
-    messages: [
-      { role: "system", content: "Jesteś doświadczonym lekarzem, który analizuje wyniki badań i udziela zrozumiałych porad zdrowotnych." },
-      { role: "user", content: prompt }
-    ],
-    temperature: 0.3,
-  });
-  summary = completion.choices[0].message.content;
-  console.log('[OPENAI] Odpowiedź ChatGPT:', summary);
-} catch (err) {
-  console.error('[OPENAI] Błąd połączenia z ChatGPT:', err);
-  throw err;
-}
-
+    let summary;
+    try {
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4",
+        messages: [
+          { role: "system", content: "Jesteś doświadczonym lekarzem, który analizuje wyniki badań i udziela zrozumiałych porad zdrowotnych." },
+          { role: "user", content: prompt }
+        ],
+        temperature: 0.3,
+      });
+      summary = completion.choices[0].message.content;
+      console.log('[OPENAI] Odpowiedź ChatGPT:', summary);
+    } catch (err) {
+      console.error('[OPENAI] Błąd połączenia z ChatGPT:', err);
+      throw err;
+    }
 
     res.json({ summary });
   } catch (error) {
@@ -349,7 +348,7 @@ try {
   }
 });
 
-// Endpoint do usuwania danych użytkownika (transakcja)
+// --- Usuwanie danych użytkownika (transakcja) ---
 app.delete('/api/user-data/:id', async (req, res) => {
   const userId = req.params.id;
   const client = await pool.connect();
@@ -386,24 +385,21 @@ app.delete('/api/user-data/:id', async (req, res) => {
   }
 });
 
-// Middleware do logowania błędów
+// --- Middleware do logowania błędów ---
 app.use((err, req, res, next) => {
   console.error('Błąd aplikacji:', err);
   res.status(500).json({ error: 'Wystąpił błąd serwera', details: err.message });
 });
 
-// Obsługa błędów nieobsłużonych
+// --- Obsługa błędów nieobsłużonych ---
 process.on('unhandledRejection', (reason, promise) => {
   console.error('Nieobsłużone odrzucenie obietnicy:', reason);
 });
 process.on('uncaughtException', (error) => {
   console.error('Nieobsłużony wyjątek:', error);
 });
-app.use((err, req, res, next) => {
-  console.error('Globalny błąd:', err);
-  res.status(500).json({ error: 'Coś poszło nie tak', details: err.message });
-});
 
+// --- Start serwera ---
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Serwer działa na porcie ${PORT}`);
