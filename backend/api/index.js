@@ -15,6 +15,9 @@ const execPromise = util.promisify(exec);
 
 const app = express();
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+console.log('[OPENAI] Inicjalizacja klienta OpenAI. Klucz API obecny:', !!process.env.OPENAI_API_KEY);
+
 
 app.get('/', (req, res) => {
   res.json({ status: 'Backend działa! na index' });
@@ -244,18 +247,29 @@ ${text}
 Jeśli w tekście nie ma wyraźnych wartości referencyjnych, dodaj standardowe zakresy referencyjne w komentarzu.
 Jeśli jakieś wartości są poza zakresem referencyjnym, wyraźnie to zaznacz w komentarzu.`;
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4.1",
-      messages: [
-        {
-          role: "system",
-          content: "Jesteś doświadczonym lekarzem, który analizuje wyniki badań laboratoryjnych. Przeprowadzasz dokładną analizę tych badań biorąc pod uwagę choroby, leki i objawy pacjenta. Zwracasz szczególną uwagę na nieprawidłowe wyniki. Zachowujesz profesjonalny i empatyczny ton. Potrafisz odczytać i zinterpretować nawet niewyraźne lub częściowo uszkodzone wyniki badań. Jeśli dane są niekompletne lub nieczytelne, zaznaczasz to w komentarzu."
-        },
-        { role: "user", content: prompt }
-      ],
-      temperature: 0.2,
-    });
-    const analysis = completion.choices[0].message.content;
+    console.log('[OPENAI] Próba połączenia z ChatGPT, model: gpt-4.1');
+console.log('[OPENAI] Prompt (surowe dane):', prompt);
+
+let analysis;
+try {
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4.1",
+    messages: [
+      {
+        role: "system",
+        content: "Jesteś doświadczonym lekarzem, który analizuje wyniki badań laboratoryjnych. Przeprowadzasz dokładną analizę tych badań biorąc pod uwagę choroby, leki i objawy pacjenta. Zwracasz szczególną uwagę na nieprawidłowe wyniki. Zachowujesz profesjonalny i empatyczny ton. Potrafisz odczytać i zinterpretować nawet niewyraźne lub częściowo uszkodzone wyniki badań. Jeśli dane są niekompletne lub nieczytelne, zaznaczasz to w komentarzu."
+      },
+      { role: "user", content: prompt }
+    ],
+    temperature: 0.2,
+  });
+  analysis = completion.choices[0].message.content;
+  console.log('[OPENAI] Odpowiedź ChatGPT:', analysis);
+} catch (err) {
+  console.error('[OPENAI] Błąd połączenia z ChatGPT:', err);
+  throw err;
+}
+
 
     // Parsowanie tabeli HTML
     const $ = cheerio.load(analysis);
@@ -309,16 +323,25 @@ app.post('/api/summarize', async (req, res) => {
 
     const prompt = `Na podstawie tych parametrów zdrowotnych, przygotuj krótkie podsumowanie stanu zdrowia pacjenta, wskazując na potencjalne problemy i zalecenia. Użyj formatowania HTML dla lepszej czytelności.\n\n${paramsText}`;
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: [
-        { role: "system", content: "Jesteś doświadczonym lekarzem, który analizuje wyniki badań i udziela zrozumiałych porad zdrowotnych." },
-        { role: "user", content: prompt }
-      ],
-      temperature: 0.3,
-    });
+console.log('[OPENAI] Prompt (surowe dane):', prompt);
 
-    const summary = completion.choices[0].message.content;
+let summary;
+try {
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4",
+    messages: [
+      { role: "system", content: "Jesteś doświadczonym lekarzem, który analizuje wyniki badań i udziela zrozumiałych porad zdrowotnych." },
+      { role: "user", content: prompt }
+    ],
+    temperature: 0.3,
+  });
+  summary = completion.choices[0].message.content;
+  console.log('[OPENAI] Odpowiedź ChatGPT:', summary);
+} catch (err) {
+  console.error('[OPENAI] Błąd połączenia z ChatGPT:', err);
+  throw err;
+}
+
 
     res.json({ summary });
   } catch (error) {
