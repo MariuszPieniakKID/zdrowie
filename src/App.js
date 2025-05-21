@@ -63,23 +63,23 @@ function App() {
   
 
   useEffect(() => {
-    const checkExistingAnalysis = async () => {
-      try {
-        const res = await axios.get(`https://zdrowie-backend.vercel.app/api/documents/${user.id}`);
-        if (res.data.documents.length > 0 && res.data.documents[0].analysis) {
-          setSummary(res.data.documents[0].analysis);
-        }
-      } catch (err) {
-        console.error('Błąd pobierania analizy:', err);
+  const checkExistingAnalysis = async () => {
+    try {
+      const res = await axios.get(`https://zdrowie-backend.vercel.app/api/documents/${user.id}`);
+      if (res.data.documents.length > 0 && res.data.documents[0].analysis) {
+        setSummary(res.data.documents[0].analysis);
       }
-    };
-
-    if (user) {
-      checkExistingAnalysis();
-      fetchFiles();
-      fetchParameters();
+    } catch (err) {
+      console.error('Błąd pobierania analizy:', err);
     }
-  }, [user, files.page]);
+  };
+  if (user && user.id) {
+    checkExistingAnalysis();
+    fetchFiles();
+    fetchParameters();
+  }
+}, [user, files.page]);
+
 
   useEffect(() => {
     if (view === 'chart') {
@@ -110,27 +110,35 @@ function App() {
   const isValidPhone = (phone) => /^(\+48)?\d{9}$/.test(sanitizePhone(phone));
 
   const handleLogin = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
+  setError('');
+  if (!isValidPhone(loginPhone)) {
+    setError('Podaj poprawny numer telefonu');
+    return;
+  }
+  setLoading(true);
+  try {
+    const res = await axios.post('https://zdrowie-backend.vercel.app/api/login', { phone: sanitizePhone(loginPhone) });
+    setUser(res.data.user);
+    setEditForm(res.data.user);
+    setView('main');
+    localStorage.setItem('user', JSON.stringify(res.data.user));
+    // CZYSZCZENIE STANU
+    setFiles({ documents: [], total: 0, page: 1, totalPages: 1 });
+    setParameters([]);
+    setSelectedParams([]);
+    setChartData({ labels: [], datasets: [] });
+    setSummary('');
+    setAnalysis('');
+    setSelectedDoc(null);
     setError('');
-    if (!isValidPhone(loginPhone)) {
-      setError('Podaj poprawny numer telefonu');
-      return;
-    }
-    setLoading(true);
-    try {
-      const res = await axios.post('https://zdrowie-backend.vercel.app/api/login', {
-        phone: sanitizePhone(loginPhone)
-      });
-      setUser(res.data.user);
-      setEditForm(res.data.user);
-      setView('main');
-      localStorage.setItem('user', JSON.stringify(res.data.user));
-    } catch (err) {
-      setError(err.response?.data?.error || 'Błąd logowania');
-    } finally {
-      setLoading(false);
-    }
-  };
+  } catch (err) {
+    setError(err.response?.data?.error || 'Błąd logowania');
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -359,11 +367,20 @@ const handleDeleteUserData = async () => {
     });
   };
 
-  const handleLogout = () => {
-    setUser(null);
-    setView('login');
-    localStorage.removeItem('user');
-  };
+const handleLogout = () => {
+  setUser(null);
+  setView('login');
+  localStorage.removeItem('user');
+  setFiles({ documents: [], total: 0, page: 1, totalPages: 1 });
+  setParameters([]);
+  setSelectedParams([]);
+  setChartData({ labels: [], datasets: [] });
+  setSummary('');
+  setAnalysis('');
+  setSelectedDoc(null);
+  setError('');
+};
+
 
   const styles = {
     layout: {
