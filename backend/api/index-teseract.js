@@ -8,6 +8,10 @@ const fs = require('fs');
 const { OpenAI } = require('openai');
 const pdf = require('pdf-parse');
 const cheerio = require('cheerio');
+const { createWorker } = require('tesseract.js');
+const { exec } = require('child_process');
+const util = require('util');
+const execPromise = util.promisify(exec);
 
 const app = express();
 
@@ -21,9 +25,12 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-// Katalog tymczasowy na pliki
+// Katalogi tymczasowe na pliki
 const uploadDir = '/tmp/uploads';
+const OUTPUT_DIR = '/tmp/converted';
+
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
 // Middleware
 app.use(cors({
@@ -50,15 +57,38 @@ const upload = multer({ storage });
 // Pomocnicza funkcja do czyszczenia numerów telefonów
 const sanitizePhone = (phone) => phone.replace(/[-\s]/g, '');
 
-// Funkcja ekstrakcji tekstu z PDF (pdf-parse)
+// OCR PDF z Tesseract
 async function extractTextFromPDF(filePath) {
   try {
-    console.log('===== EKSTRAKCJA TEKSTU Z PDF (pdf-parse) =====');
-    const dataBuffer = fs.readFileSync(filePath);
-    const data = await pdf(dataBuffer);
-    console.log(data.text);
-    console.log('===== KONIEC TEKSTU Z PDF =====');
-    return data.text;
+    console.log('===== UŻYWAM METODY TESSERACT Z TEST.JS =====');
+    const outputPrefix = path.join(OUTPUT_DIR, 'page');
+    await execPromise(`pdftoppm -png -r 300 "${filePath}" "${outputPrefix}"`);
+
+    const worker = await createWorker();
+    let text = '';
+
+    const files = fs.readdirSync(OUTPUT_DIR);
+    const pngFiles = files.filter(file => file.startsWith('page') && file.endsWith('.png'));
+
+    for (const pngFile of pngFiles) {
+      const imagePath = path.join(OUTPUT_DIR, pngFile);
+      const { data } = await worker.recognize(imagePath);
+      text += data.text + '\n';
+
+      try {
+        fs.unlinkSync(imagePath);
+      } catch (e) {
+        console.log(`Nie można usunąć pliku ${imagePath}:`, e);
+      }
+    }
+
+    await worker.terminate();
+
+    console.log('===== TEKST Z OCR (TESSERACT) =====');
+    console.log(text);
+    console.log('===== KONIEC TEKSTU Z OCR =====');
+
+    return text;
   } catch (error) {
     console.error('Błąd konwersji PDF:', error);
     throw error;
@@ -199,8 +229,8 @@ app.post('/api/analyze-file', async (req, res) => {
 
     const filePath = path.join(uploadDir, docs[0].filepath);
 
-    // Ekstrakcja tekstu z PDF
-    console.log('Rozpoczynam ekstrakcję tekstu z PDF (pdf-parse)...');
+    // OCR
+    console.log('Rozpoczynam ekstrakcję tekstu z PDF używając TESSERACT...');
     const text = await extractTextFromPDF(filePath);
     console.log('Ekstrakcja zakończona, długość tekstu:', text.length);
 
