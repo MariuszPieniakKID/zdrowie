@@ -140,31 +140,29 @@ function App() {
 };
 
 
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    setError('');
-    if (!registerForm.name || !registerForm.email || !registerForm.phone) {
-      setError('WypeĹnij wszystkie pola');
-      return;
-    }
-    if (!isValidPhone(registerForm.phone)) {
-      setError('Podaj poprawny numer telefonu');
-      return;
-    }
-    setLoading(true);
-    try {
-      await axios.post('https://zdrowie-backend.vercel.app/api/login', {
-        ...registerForm,
-        phone: sanitizePhone(registerForm.phone)
-      });
-      setView('login');
-      setRegisterForm({ name: '', email: '', phone: '' });
-    } catch (err) {
-      setError(err.response?.data?.error || 'Błąd rejestracji');
-    } finally {
-      setLoading(false);
-    }
-  };
+const handleRegister = async (e) => {
+  e.preventDefault();
+  setError('');
+  if (!registerForm.name || !registerForm.email || !registerForm.phone) {
+    setError('Wypełnij wszystkie pola');
+    return;
+  }
+  if (!isValidPhone(registerForm.phone)) {
+    setError('Podaj poprawny numer telefonu');
+    return;
+  }
+  setLoading(true);
+  try {
+    await axios.post('https://zdrowie-backend.vercel.app/api/register', { ...registerForm, phone: sanitizePhone(registerForm.phone) });
+    setView('login');
+    setRegisterForm({ name: '', email: '', phone: '' });
+  } catch (err) {
+    setError(err.response?.data?.error || 'Błąd rejestracji');
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const handleEdit = async (e) => {
     e.preventDefault();
