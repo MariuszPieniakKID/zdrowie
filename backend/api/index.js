@@ -75,8 +75,9 @@ const OUTPUT_DIR = '/tmp/converted';
 
 
 // Upewnij się, że katalogi istnieją
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
-if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR);
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+
 
 // Funkcja do przetwarzania PDF przez OCR z Tesseract (z test.js)
 async function extractTextFromPDF(filePath) {
