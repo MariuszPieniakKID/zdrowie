@@ -392,7 +392,7 @@ process.on('uncaughtException', (error) => {
   console.error('Nieobsłużony wyjątek:', error);
 });
 
-// --- Start serwera ---
+// --- Start serwera ---okok 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Serwer działa na porcie ${PORT}`);
