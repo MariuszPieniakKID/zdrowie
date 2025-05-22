@@ -381,6 +381,7 @@ const handleLogout = () => {
   setAnalysis('');
   setSelectedDoc(null);
   setError('');
+  window.location.reload();
 };
 
 
@@ -848,6 +849,9 @@ if (showLanding && !user) {
         minHeight: '100vh',
         backgroundColor: '#f9fafb',
         backgroundImage: `url('${process.env.PUBLIC_URL}/tlo.png')`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
         padding: '20px'
       }}>
         <div style={{ 
