@@ -847,6 +847,7 @@ if (showLanding && !user) {
         alignItems: 'center', 
         minHeight: '100vh',
         backgroundColor: '#f9fafb',
+        backgroundImage: `url('${process.env.PUBLIC_URL}/tlo.png')`,
         padding: '20px'
       }}>
         <div style={{ 
