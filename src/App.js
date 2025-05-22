@@ -828,7 +828,7 @@ if (showLanding && !user) {
                   fontWeight: '500',
                 }}
               >
-                Zarejestruj się
+                Zarejestruj się
               </button>
             </div>
           </form>

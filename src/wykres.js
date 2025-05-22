@@ -309,26 +309,7 @@ function WykresWynikow({
       </div>
 
       {/* Sekcja analizy */}
-      {summary && (
-        <div style={{
-          ...styles.chartContainer,
-          marginTop: 20,
-          border: '2px solid #e0e0e0',
-          borderRadius: '8px',
-          padding: '20px'
-        }}>
-          <h2>Analiza</h2>
-          <div
-            style={{
-              marginTop: 20,
-              padding: 15,
-              background: '#f8f9fa',
-              borderRadius: 4
-            }}
-            dangerouslySetInnerHTML={{ __html: summary }}
-          />
-        </div>
-      )}
+      
     </>
   );
 }
