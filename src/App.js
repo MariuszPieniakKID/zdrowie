@@ -371,7 +371,7 @@ const handleDeleteUserData = async () => {
 
 const handleLogout = () => {
   setUser(null);
-  setView('login');
+  setShowLanding(true);
   localStorage.removeItem('user');
   setFiles({ documents: [], total: 0, page: 1, totalPages: 1 });
   setParameters([]);
@@ -726,9 +726,16 @@ const handleLogout = () => {
   const responsiveStyles = applyResponsiveStyles(styles);
 if (showLanding && !user) {
   return (
-    <Landing onLoginClick={() => setShowLanding(false)} />
+    <Landing
+      onLoginClick={() => setShowLanding(false)}
+      onRegisterClick={() => {
+        setShowLanding(false);
+        setView('register');
+      }}
+    />
   );
 }
+
 
 
  if (view === 'login') {

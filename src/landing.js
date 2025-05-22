@@ -1,17 +1,28 @@
 import React from 'react';
 import './landing.css';
 
-function Landing({ onLoginClick }) {
+function Landing({ onLoginClick, onRegisterClick }) {
   return (
     <div className="app">
-      <header className="header">
-        <div className="header-left">
-          <span className="nav-item">Firma</span>
-          <span className="nav-item">Zespół</span>
-          <span className="nav-item">Cennik</span>
-          <span className="nav-item" onClick={onLoginClick} style={{ cursor: 'pointer' }}>Zaloguj</span>
-        </div>
-      </header>
+     <header className="header">
+  <div className="header-left">
+    <span className="nav-item">Firma</span>
+    <span className="nav-item">Zespół</span>
+    <span className="nav-item">Cennik</span>
+  </div>
+  <div className="header-right">
+    <span className="nav-item" onClick={onLoginClick} style={{ cursor: 'pointer' }}>Zaloguj</span>
+    <button
+      className="nav-item register-btn"
+      type="button"
+      onClick={onRegisterClick}
+      style={{ cursor: 'pointer', marginLeft: '1rem' }}
+    >
+      Zarejestruj
+    </button>
+  </div>
+</header>
+
 
       <section className="hero">
         <div className="hero-content">
