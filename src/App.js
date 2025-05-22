@@ -828,7 +828,8 @@ if (showLanding && !user) {
                   fontSize: '14px',
                   fontWeight: '500',
                 }}
-              >AAAAAA</button>
+              >
+              Zarejestruj się</button>
             </div>
           </form>
           
