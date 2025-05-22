@@ -19,18 +19,21 @@ console.log('[OPENAI] Inicjalizacja klienta OpenAI. Klucz API obecny:', !!proces
 // Google Vision & Storage – poprawna inicjalizacja na Vercel!
 const visionClient = new vision.ImageAnnotatorClient({
   credentials: {
-    client_email: process.env.GCP_CLIENT_EMAIL,
+    client_email: process.env.GCP_SERVICE_ACCOUNT_EMAIL,
     private_key: process.env.GCP_PRIVATE_KEY.replace(/\\n/g, '\n'),
   },
   projectId: process.env.GCP_PROJECT_ID,
 });
 const gcsStorage = new Storage({
   credentials: {
-    client_email: process.env.GCP_CLIENT_EMAIL,
+    client_email: process.env.GCP_SERVICE_ACCOUNT_EMAIL,
     private_key: process.env.GCP_PRIVATE_KEY.replace(/\\n/g, '\n'),
   },
   projectId: process.env.GCP_PROJECT_ID,
 });
+console.log('GCP_PROJECT_ID:', process.env.GCP_PROJECT_ID);
+console.log('GCP_SERVICE_ACCOUNT_EMAIL:', process.env.GCP_SERVICE_ACCOUNT_EMAIL);
+console.log('GCP_PRIVATE_KEY:', process.env.GCP_PRIVATE_KEY ? 'OK' : 'MISSING');
 
 // Pool do PostgreSQL (Neon)
 const pool = new Pool({
