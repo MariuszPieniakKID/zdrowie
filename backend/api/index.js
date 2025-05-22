@@ -1,4 +1,6 @@
 require('dotenv').config();
+const vision = require('@google-cloud/vision');
+const { Storage } = require('@google-cloud/storage');
 const express = require('express');
 const { Pool } = require('pg');
 const cors = require('cors');
@@ -6,14 +8,29 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { OpenAI } = require('openai');
-const pdf = require('pdf-parse');
 const cheerio = require('cheerio');
 
 const app = express();
 
-// Inicjalizacja OpenAI
+// OpenAI
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 console.log('[OPENAI] Inicjalizacja klienta OpenAI. Klucz API obecny:', !!process.env.OPENAI_API_KEY);
+
+// Google Vision & Storage – poprawna inicjalizacja na Vercel!
+const visionClient = new vision.ImageAnnotatorClient({
+  credentials: {
+    client_email: process.env.GCP_CLIENT_EMAIL,
+    private_key: process.env.GCP_PRIVATE_KEY.replace(/\\n/g, '\n'),
+  },
+  projectId: process.env.GCP_PROJECT_ID,
+});
+const gcsStorage = new Storage({
+  credentials: {
+    client_email: process.env.GCP_CLIENT_EMAIL,
+    private_key: process.env.GCP_PRIVATE_KEY.replace(/\\n/g, '\n'),
+  },
+  projectId: process.env.GCP_PROJECT_ID,
+});
 
 // Pool do PostgreSQL (Neon)
 const pool = new Pool({
@@ -41,44 +58,66 @@ app.get('/', (req, res) => {
 });
 
 // Multer do uploadu PDF
-const storage = multer.diskStorage({
+const multerStorage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`)
 });
-const upload = multer({ storage });
+const upload = multer({ storage: multerStorage });
 
 // Pomocnicza funkcja do czyszczenia numerów telefonów
 const sanitizePhone = (phone) => phone.replace(/[-\s]/g, '');
 
-// Funkcja ekstrakcji tekstu z PDF (pdf-parse)
-async function extractTextFromPDF(filePath) {
-  try {
-    console.log('===== EKSTRAKCJA TEKSTU Z PDF (pdf-parse) =====');
-    const dataBuffer = fs.readFileSync(filePath);
-    const data = await pdf(dataBuffer);
-    console.log(data.text);
-    console.log('===== KONIEC TEKSTU Z PDF =====');
-    return data.text;
-  } catch (error) {
-    console.error('Błąd konwersji PDF:', error);
-    throw error;
+// Upload PDF do Google Cloud Storage
+async function uploadFileToGCS(localFilePath, bucketName, destFileName) {
+  await gcsStorage.bucket(bucketName).upload(localFilePath, { destination: destFileName });
+  return `gs://${bucketName}/${destFileName}`;
+}
+
+// Wywołanie OCR na PDF
+async function extractTextFromPDFWithOCR(gcsSourceUri, gcsDestinationUri) {
+  const inputConfig = {
+    mimeType: 'application/pdf',
+    gcsSource: { uri: gcsSourceUri },
+  };
+  const outputConfig = {
+    gcsDestination: { uri: gcsDestinationUri },
+    batchSize: 1,
+  };
+  const features = [{ type: 'DOCUMENT_TEXT_DETECTION' }];
+  const request = {
+    requests: [{ inputConfig, features, outputConfig }],
+  };
+  const [operation] = await visionClient.asyncBatchAnnotateFiles(request);
+  await operation.promise();
+}
+
+// Pobierz wynik OCR z GCS
+async function downloadOcrResultFromGCS(bucketName, prefix) {
+  const [files] = await gcsStorage.bucket(bucketName).getFiles({ prefix });
+  let fullText = '';
+  for (const file of files) {
+    if (file.name.endsWith('.json')) {
+      const contents = await file.download();
+      const json = JSON.parse(contents);
+      if (json.responses && json.responses[0] && json.responses[0].fullTextAnnotation) {
+        fullText += json.responses[0].fullTextAnnotation.text + '\n';
+      }
+    }
   }
+  return fullText;
 }
 
 // --- Endpointy użytkowników ---
 app.post('/api/register', async (req, res) => {
   const { name, email, phone } = req.body;
   const sanitizedPhone = sanitizePhone(phone);
-  console.log('[REGISTER] Próba rejestracji:', { name, email, phone, sanitizedPhone });
   try {
     await pool.query(
       'INSERT INTO users (name, email, phone) VALUES ($1, $2, $3)',
       [name, email, sanitizedPhone]
     );
-    console.log('[REGISTER] Rejestracja UDANA:', sanitizedPhone);
     res.status(201).json({ message: 'Rejestracja udana!' });
   } catch (error) {
-    console.error('[REGISTER] Błąd rejestracji:', error.message);
     res.status(500).json({ error: error.message });
   }
 });
@@ -86,20 +125,16 @@ app.post('/api/register', async (req, res) => {
 app.post('/api/login', async (req, res) => {
   const { phone } = req.body;
   const sanitizedPhone = sanitizePhone(phone);
-  console.log('[LOGIN] Próba logowania:', { phone, sanitizedPhone });
   try {
     const { rows } = await pool.query(
       'SELECT * FROM users WHERE phone = $1',
       [sanitizedPhone]
     );
     if (rows.length === 0) {
-      console.warn('[LOGIN] Nie znaleziono użytkownika:', sanitizedPhone);
       return res.status(404).json({ error: 'Nie znaleziono użytkownika' });
     }
-    console.log('[LOGIN] Logowanie UDANE:', rows[0]);
     res.json({ user: rows[0] });
   } catch (error) {
-    console.error('[LOGIN] Błąd logowania:', error.message);
     res.status(500).json({ error: error.message });
   }
 });
@@ -159,15 +194,12 @@ app.delete('/api/document/:id', async (req, res) => {
     if (docs.length === 0) {
       return res.status(404).json({ error: 'Nie znaleziono dokumentu' });
     }
-
     const filePath = path.join(uploadDir, docs[0].filepath);
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
     }
-
     await pool.query('DELETE FROM parameters WHERE document_id = $1', [req.params.id]);
     await pool.query('DELETE FROM documents WHERE id = $1', [req.params.id]);
-
     res.json({ message: 'Dokument usunięty' });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -187,7 +219,7 @@ app.get('/api/parameters/:user_id', async (req, res) => {
   }
 });
 
-// --- Analiza pliku przez OpenAI ---
+// --- Analiza pliku przez OpenAI z OCR Google ---
 app.post('/api/analyze-file', async (req, res) => {
   const { document_id, user_id } = req.body;
   try {
@@ -199,10 +231,17 @@ app.post('/api/analyze-file', async (req, res) => {
 
     const filePath = path.join(uploadDir, docs[0].filepath);
 
-    // Ekstrakcja tekstu z PDF
-    console.log('Rozpoczynam ekstrakcję tekstu z PDF (pdf-parse)...');
-    const text = await extractTextFromPDF(filePath);
-    console.log('Ekstrakcja zakończona, długość tekstu:', text.length);
+    // --- EKSTRAKCJA TEKSTU Z PDF PRZEZ GOOGLE OCR ---
+    const bucketName = process.env.GCS_BUCKET_NAME;
+    const destFileName = `${Date.now()}-${docs[0].filename}`;
+    const gcsSourceUri = await uploadFileToGCS(filePath, bucketName, destFileName);
+    const ocrResultPrefix = `ocr-results/${Date.now()}-${docs[0].id}/`;
+    const gcsDestinationUri = `gs://${bucketName}/${ocrResultPrefix}`;
+    console.log('Wywołuję OCR Google Vision...');
+    await extractTextFromPDFWithOCR(gcsSourceUri, gcsDestinationUri);
+    console.log('OCR zakończony, pobieram wynik...');
+    const text = await downloadOcrResultFromGCS(bucketName, ocrResultPrefix);
+    console.log('Ekstrakcja przez OCR Google zakończona, długość tekstu:', text.length);
 
     const { symptoms, chronic_diseases, medications } = docs[0];
 
@@ -216,9 +255,6 @@ ${text}
 ... Jeśli w tekście nie ma wyraźnych dat badań, użyj daty z nazwy pliku lub przyjmij dzisiejszą datę.
 Jeśli w tekście nie ma wyraźnych wartości referencyjnych, dodaj standardowe zakresy referencyjne w komentarzu.
 Jeśli jakieś wartości są poza zakresem referencyjnym, wyraźnie to zaznacz w komentarzu.`;
-
-    console.log('[OPENAI] Próba połączenia z ChatGPT, model: gpt-4.1');
-    console.log('[OPENAI] Prompt (surowe dane):', prompt);
 
     let analysis;
     try {
@@ -234,7 +270,6 @@ Jeśli jakieś wartości są poza zakresem referencyjnym, wyraźnie to zaznacz w
         temperature: 0.2,
       });
       analysis = completion.choices[0].message.content;
-      console.log('[OPENAI] Odpowiedź ChatGPT:', analysis);
     } catch (err) {
       console.error('[OPENAI] Błąd połączenia z ChatGPT:', err);
       throw err;
@@ -281,19 +316,15 @@ Jeśli jakieś wartości są poza zakresem referencyjnym, wyraźnie to zaznacz w
 // --- Podsumowanie parametrów przez OpenAI ---
 app.post('/api/summarize', async (req, res) => {
   const { userId, parameters } = req.body;
-
   try {
     if (!parameters.length) {
       return res.status(400).json({ error: 'Brak parametrów do analizy' });
     }
-
     const paramsText = parameters.map(p =>
       `${p.parameter_name}: ${p.parameter_value} (${p.parameter_comment}) - data: ${p.measurement_date}`
     ).join('\n');
 
     const prompt = `Na podstawie tych parametrów zdrowotnych, przygotuj krótkie podsumowanie stanu zdrowia pacjenta, wskazując na potencjalne problemy i zalecenia. Użyj formatowania HTML dla lepszej czytelności.\n\n${paramsText}`;
-
-    console.log('[OPENAI] Prompt (surowe dane):', prompt);
 
     let summary;
     try {
@@ -306,12 +337,10 @@ app.post('/api/summarize', async (req, res) => {
         temperature: 0.3,
       });
       summary = completion.choices[0].message.content;
-      console.log('[OPENAI] Odpowiedź ChatGPT:', summary);
     } catch (err) {
       console.error('[OPENAI] Błąd połączenia z ChatGPT:', err);
       throw err;
     }
-
     res.json({ summary });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -322,29 +351,20 @@ app.post('/api/summarize', async (req, res) => {
 app.delete('/api/user-data/:id', async (req, res) => {
   const userId = req.params.id;
   const client = await pool.connect();
-
   try {
     await client.query('BEGIN');
-
-    // Pobierz ścieżki do plików przed ich usunięciem z bazy
     const { rows: documents } = await client.query(
       'SELECT filepath FROM documents WHERE user_id = $1',
       [userId]
     );
-
-    // Usuń parametry użytkownika
     await client.query('DELETE FROM parameters WHERE user_id = $1', [userId]);
-    // Usuń dokumenty użytkownika z bazy danych
     await client.query('DELETE FROM documents WHERE user_id = $1', [userId]);
-
-    // Usuń fizyczne pliki z serwera
     for (const doc of documents) {
       const filePath = path.join(uploadDir, doc.filepath);
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
       }
     }
-
     await client.query('COMMIT');
     res.json({ message: 'Dane użytkownika zostały pomyślnie usunięte' });
   } catch (error) {
