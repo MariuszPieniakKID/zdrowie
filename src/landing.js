@@ -12,14 +12,7 @@ function Landing({ onLoginClick, onRegisterClick }) {
   </div>
   <div className="header-right">
     <span className="nav-item" onClick={onLoginClick} style={{ cursor: 'pointer' }}>Zaloguj</span>
-    <button
-      className="nav-item register-btn"
-      type="button"
-      onClick={onRegisterClick}
-      style={{ cursor: 'pointer', marginLeft: '1rem' }}
-    >
-      Zarejestruj
-    </button>
+    <span className="nav-item" onClick={onRegisterClick} style={{ cursor: 'pointer' }}>Zarejestruj</span>
   </div>
 </header>
 
