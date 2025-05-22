@@ -7,6 +7,8 @@ import WykresWynikow from './wykres';
 import PrzeslaneBadania from './badania'; //import logger from './logger';
 import WgrajPlik from './upload'; 
 import EdytujProfil from './edit'; 
+import Landing from './landing';
+
 
 //import logger from './logger';
 import { FaSignOutAlt, FaUser, FaChartLine, FaFileAlt, FaHome, FaUpload } from 'react-icons/fa';
@@ -33,6 +35,7 @@ function App() {
     page: 1,
     totalPages: 1
   });
+  const [showLanding, setShowLanding] = useState(true);
   const [selectedFile, setSelectedFile] = useState(null);
   const [symptoms, setSymptoms] = useState('');
   const [chronicDiseases, setChronicDiseases] = useState('');
@@ -57,6 +60,7 @@ function App() {
     setUser(parsedUser);
     setEditForm(parsedUser);
     setView('main');
+    setShowLanding(false);
   }
 }, []);
 
@@ -720,6 +724,12 @@ const handleLogout = () => {
   };
 
   const responsiveStyles = applyResponsiveStyles(styles);
+if (showLanding && !user) {
+  return (
+    <Landing onLoginClick={() => setShowLanding(false)} />
+  );
+}
+
 
  if (view === 'login') {
   return (
