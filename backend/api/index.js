@@ -260,9 +260,23 @@ app.post('/api/analyze-file', async (req, res) => {
     if ((text || '').toLowerCase().includes('anemia')) {
       medicalInfo = await getMedlinePlusInfo('anemia');
     }
+   
 
+const { rows: previousParameters } = await pool.query(
+  'SELECT parameter_name, parameter_value, measurement_date FROM parameters WHERE user_id = $1 ORDER BY measurement_date DESC LIMIT 10',
+  [user_id]
+);
+
+let historyText = '';
+if (previousParameters.length > 0) {
+  historyText = 'Moje poprzednie wyniki badań to:\n' + previousParameters.map(
+    p => `${p.parameter_name}: ${p.parameter_value} (Data: ${p.measurement_date})`
+  ).join('\n');
+}
     // -- GŁÓWNY PROMPT --
-    const prompt = `Biorąc pod uwagę moje symptomy: ${symptoms || 'brak'}, oraz choroby przewlekłe: ${chronic_diseases || 'brak'}, oraz leki jakie biorę: ${medications || 'brak'}, przeanalizuj poniższe wyniki badań laboratoryjnych.
+    const prompt = `
+${historyText ? historyText + '\n\n' : ''}
+Biorąc pod uwagę moje symptomy: ${symptoms || 'brak'}, oraz choroby przewlekłe: ${chronic_diseases || 'brak'}, oraz leki jakie biorę: ${medications || 'brak'}, przeanalizuj poniższe wyniki badań laboratoryjnych.
 
 Podaj wyniki badań w tabeli HTML (<table>) z następującymi kolumnami: Parametr, Wartość, Komentarz, Data badania (YYYY-MM-DD).
 
@@ -271,7 +285,8 @@ ${text}
 ${medicalInfo ? "\n\nDodatkowe informacje z MedlinePlus:\n" + medicalInfo : ""}
 ... Jeśli w tekście nie ma wyraźnych dat badań, użyj daty z nazwy pliku lub przyjmij dzisiejszą datę.
 Jeśli w tekście nie ma wyraźnych wartości referencyjnych, dodaj standardowe zakresy referencyjne w komentarzu.
-Jeśli jakieś wartości są poza zakresem referencyjnym, wyraźnie to zaznacz w komentarzu.`;
+Jeśli jakieś wartości są poza zakresem referencyjnym, wyraźnie to zaznacz w komentarzu.
+Jeśli istnieją istotne zmiany względem poprzednich badań, wskaż je.`;
 
     const openAiMessages = [
       {
