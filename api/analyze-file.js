@@ -264,40 +264,20 @@ async function extractTextFromPDF(filePath, symptoms = '', chronic_diseases = ''
     console.log('📝 Przykład tekstu:', text.substring(0, 200));
   }
   
-  // PDF jest nieczytelny - sprawdź czy można użyć konwersji PDF→obraz
-  const canConvertPDF = pdf && sharp;
-  
+  // PDF jest nieczytelny - próbuj konwersję PDF → obraz → GPT-4 Vision
   if (openai) {
-    if (canConvertPDF) {
-      console.log('🤖 PDF nieczytelny - próbuję konwersję PDF→obraz→GPT-4 Vision...');
-      const visionResult = await analyzeFileWithGPT4Vision(filePath, symptoms, chronic_diseases, medications);
-      
-      if (visionResult.success) {
-        console.log(`✅ GPT-4 Vision sukces - przetworzono ${visionResult.images_processed} stron PDF`);
-        return {
-          text: visionResult.analysis,
-          method: visionResult.method,
-          isDirectAnalysis: true
-        };
-      } else {
-        console.log(`⚠️ GPT-4 Vision PDF→obraz failed: ${visionResult.error}`);
-      }
+    console.log('🤖 PDF nieczytelny - próbuję konwersję PDF→obraz→GPT-4 Vision...');
+    const visionResult = await analyzeFileWithGPT4Vision(filePath, symptoms, chronic_diseases, medications);
+    
+    if (visionResult.success) {
+      console.log(`✅ GPT-4 Vision sukces - przetworzono ${visionResult.images_processed} stron PDF`);
+      return {
+        text: visionResult.analysis,
+        method: visionResult.method,
+        isDirectAnalysis: true
+      };
     } else {
-      // Na Vercel: nie można konwertować PDF, ale spróbuj wysłać surowy tekst do GPT-4 z ostrzeżeniem
-      console.log('⚠️ Środowisko Vercel - nie można konwertować PDF na obrazy');
-      console.log('🤖 Próbuję analizę surowego tekstu z ostrzeżeniem o jakości...');
-      
-      if (text && text.trim().length > 50) {
-        // Oznacz tekst jako pochodzący z nieczytelnego PDF
-        const warningText = `UWAGA: Ten tekst został wyciągnięty z prawdopodobnie zeskanowanego PDF-a i może być nieczytelny lub uszkodzony. Oto surowy tekst:\n\n${text}\n\nJeśli tekst jest nieczytelny, poinformuj użytkownika, że powinien przesłać plik jako obraz (JPG/PNG) zamiast PDF.`;
-        
-        return { 
-          text: warningText, 
-          method: 'pdf-parse (nieczytelny PDF - Vercel)', 
-          isDirectAnalysis: false,
-          isLowQuality: true  // Flaga dla dalszego przetwarzania
-        };
-      }
+      console.log(`⚠️ GPT-4 Vision PDF→obraz failed: ${visionResult.error}`);
     }
   }
   
@@ -305,9 +285,9 @@ async function extractTextFromPDF(filePath, symptoms = '', chronic_diseases = ''
   console.log('⚠️ Ostatnia próba - Tesseract OCR...');
   
   // Informacja o ograniczeniach
-  if (!canConvertPDF) {
+  if (!pdf || !sharp) {
     console.log('❌ Konwersja PDF→obraz niedostępna na tym środowisku');
-    throw new Error('Plik PDF jest zeskanowanym dokumentem i wymaga OCR. Na tym środowisku (Vercel) nie można konwertować PDF na obrazy. Spróbuj przesłać plik jako obraz (JPG/PNG) lub użyj PDF z tekstem cyfrowym.');
+    throw new Error('Plik PDF jest zeskanowanym dokumentem i wymaga OCR. Na tym środowisku nie można konwertować PDF na obrazy. Spróbuj przesłać plik jako obraz (JPG/PNG) lub użyj PDF z tekstem cyfrowym.');
   }
   
   // Tesseract nie radzi sobie z PDF bezpośrednio
@@ -385,34 +365,7 @@ export default async function handler(req, res) {
       // Standardowa analiza przez OpenAI
       console.log(`📝 Analizuję wyciągnięty tekst metodą: ${extractResult.method}`);
       
-      let prompt;
-      
-      if (extractResult.isLowQuality) {
-        // Specjalny prompt dla nieczytelnych PDF-ów na Vercel
-        prompt = `
-UWAGA: Ten tekst może być nieczytelny - pochodzi z zeskanowanego PDF-a.
-
-Kontekst pacjenta:
-- Symptomy: ${symptoms || 'brak'}
-- Choroby przewlekłe: ${chronic_diseases || 'brak'}
-- Leki: ${medications || 'brak'}
-
-ZADANIE: Spróbuj przeanalizować poniższy tekst z PDF-a. Jeśli tekst jest nieczytelny lub uszkodzony:
-1. Poinformuj użytkownika o problemie
-2. Zasugeruj przesłanie pliku jako obraz (JPG/PNG) 
-3. Jeśli jednak uda Ci się wyciągnąć jakiekolwiek parametry medyczne, umieść je w tabeli HTML
-
-Format tabeli (jeśli możliwy):
-<table>
-<tr><th>Parametr</th><th>Wartość</th><th>Komentarz</th><th>Data</th></tr>
-<!-- parametry jeśli możliwe -->
-</table>
-
-Tekst do analizy:
-${extractResult.text}`;
-      } else {
-        // Standardowy prompt
-        prompt = `
+      const prompt = `
 Biorąc pod uwagę moje symptomy: ${symptoms || 'brak'}, oraz choroby przewlekłe: ${chronic_diseases || 'brak'}, oraz leki jakie biorę: ${medications || 'brak'}, przeanalizuj poniższe wyniki badań laboratoryjnych.
 
 Podaj wyniki badań w tabeli HTML (<table>) z następującymi kolumnami: Parametr, Wartość, Komentarz, Data badania (YYYY-MM-DD).
@@ -423,7 +376,6 @@ ${extractResult.text}
 Jeśli w tekście nie ma wyraźnych dat badań, użyj dzisiejszej daty.
 Jeśli w tekście nie ma wyraźnych wartości referencyjnych, dodaj standardowe zakresy.
 Jeśli jakieś wartości są poza zakresem referencyjnym, wyraźnie to zaznacz.`;
-      }
 
       try {
         if (!openai) {
@@ -435,19 +387,14 @@ Jeśli jakieś wartości są poza zakresem referencyjnym, wyraźnie to zaznacz.`
           messages: [
             {
               role: "system",
-              content: "Jesteś doświadczonym lekarzem, który analizuje wyniki badań laboratoryjnych. Zwracasz szczególną uwagę na nieprawidłowe wyniki. Jeśli tekst jest nieczytelny lub uszkodzony, informujesz o tym użytkownika i sugerujesz rozwiązania."
+              content: "Jesteś doświadczonym lekarzem, który analizuje wyniki badań laboratoryjnych. Zwracasz szczególną uwagę na nieprawidłowe wyniki."
             },
             { role: "user", content: prompt }
           ],
           temperature: 0.2,
         });
         analysis = completion.choices[0].message.content;
-        
-        // Oznacz metodę OCR
-        const methodLabel = extractResult.isLowQuality ? 
-          `${extractResult.method} (UWAGA: tekst może być nieczytelny)` : 
-          extractResult.method;
-        analysis += `\n\n<p><small><strong>Metoda OCR:</strong> ${methodLabel}</small></p>`;
+        analysis += `\n\n<p><small><strong>Metoda OCR:</strong> ${extractResult.method}</small></p>`;
         
       } catch (err) {
         console.error('[OPENAI] Błąd połączenia z ChatGPT:', err);
