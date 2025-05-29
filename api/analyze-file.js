@@ -105,6 +105,34 @@ async function extractTextWithTesseract(filePath) {
   }
 }
 
+// Funkcja do sprawdzenia jakości wyciągniętego tekstu
+function isTextReadable(text) {
+  if (!text || text.trim().length < 50) return false;
+  
+  // Sprawdź stosunek alfanumerycznych znaków do wszystkich
+  const alphanumericChars = text.match(/[a-zA-Z0-9]/g) || [];
+  const totalChars = text.replace(/\s/g, '').length;
+  
+  if (totalChars === 0) return false;
+  
+  const alphanumericRatio = alphanumericChars.length / totalChars;
+  
+  // Jeśli mniej niż 30% znaków to alfanumeryczne, prawdopodobnie to śmieci
+  if (alphanumericRatio < 0.3) return false;
+  
+  // Sprawdź czy tekst zawiera znane słowa medyczne lub cyfry
+  const medicalKeywords = ['badanie', 'wynik', 'norma', 'mg', 'dl', 'mmol', 'laboratoria', 'krew', 'mocz', 'ciśnienie'];
+  const hasKeywords = medicalKeywords.some(keyword => 
+    text.toLowerCase().includes(keyword)
+  );
+  
+  // Sprawdź czy jest dużo cyfr (typowe dla wyników badań)
+  const numberMatches = text.match(/\d+/g) || [];
+  const hasNumbers = numberMatches.length > 3;
+  
+  return hasKeywords || hasNumbers || alphanumericRatio > 0.6;
+}
+
 async function extractTextFromPDF(filePath, symptoms = '', chronic_diseases = '', medications = '') {
   console.log('🔍 Rozpoczynam ekstrakcję tekstu z PDF...');
   
@@ -129,13 +157,24 @@ async function extractTextFromPDF(filePath, symptoms = '', chronic_diseases = ''
   console.log('📄 Próbuję pdf-parse...');
   let text = await extractTextFromPDFLocal(filePath);
   
-  if (text && text.trim().length > 50) {
-    console.log('✅ PDF-parse sukces - znaleziono tekst');
+  if (text && isTextReadable(text)) {
+    console.log('✅ PDF-parse sukces - znaleziono czytelny tekst');
     return { text, method: 'pdf-parse', isDirectAnalysis: false };
+  } else if (text) {
+    console.log(`⚠️ PDF-parse wyciągnął tekst (${text.length} znaków), ale wydaje się nieczytelny`);
+    console.log('📝 Przykład tekstu:', text.substring(0, 200));
   }
   
-  // Fallback: Tesseract
-  console.log('⚠️ PDF-parse nie wykrył tekstu, próbuję Tesseract OCR...');
+  // Fallback: Tesseract - ale na Vercel nie zadziała z PDF
+  console.log('⚠️ PDF-parse nie wykrył czytelnego tekstu, próbuję Tesseract OCR...');
+  
+  // Informacja o ograniczeniach Vercel
+  const fileExtension = path.extname(filePath).toLowerCase();
+  if (fileExtension === '.pdf') {
+    console.log('❌ Tesseract na Vercel nie obsługuje PDF-ów bezpośrednio');
+    throw new Error('Plik PDF jest zeskanowanym dokumentem i wymaga OCR. Na Vercel nie można konwertować PDF na obrazy. Spróbuj przesłać plik jako obraz (JPG/PNG) lub użyj PDF z tekstem cyfrowym.');
+  }
+  
   text = await extractTextWithTesseract(filePath);
   
   if (text && text.trim().length > 20) {
