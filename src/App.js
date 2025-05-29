@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { Chart, registerables } from 'chart.js';
 import 'chartjs-adapter-date-fns';
-import { pl } from 'date-fns/locale';
 import WykresWynikow from './wykres';
 import PrzeslaneBadania from './badania'; //import logger from './logger';
 import WgrajPlik from './upload'; 
@@ -53,54 +52,19 @@ function App() {
   const [loadingAnalysis, setLoadingAnalysis] = useState(null);
   const [selectedParams, setSelectedParams] = useState([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  useEffect(() => {
-  const storedUser = localStorage.getItem('user');
-  if (storedUser) {
-    const parsedUser = JSON.parse(storedUser);
-    setUser(parsedUser);
-    setEditForm(parsedUser);
-    setView('main');
-    setShowLanding(false);
-  }
-}, []);
 
-  
-
-  useEffect(() => {
-  const checkExistingAnalysis = async () => {
-    try {
-      const res = await axios.get(`https://zdrowie-backend.vercel.app/api/documents/${user.id}`);
-      if (res.data.documents.length > 0 && res.data.documents[0].analysis) {
-        setSummary(res.data.documents[0].analysis);
-      }
-    } catch (err) {
-      console.error('Błąd pobierania analizy:', err);
-    }
-  };
-  if (user && user.id) {
-    checkExistingAnalysis();
-    fetchFiles();
-    fetchParameters();
-  }
-}, [user, files.page]);
-
-
-  useEffect(() => {
-    if (view === 'chart') {
-      generateChartData();
-    }
-  }, [selectedParams, parameters, view]);
-
-  const fetchFiles = async () => {
+  const fetchFiles = useCallback(async () => {
+    if (!user?.id) return;
     try {
       const res = await axios.get(`https://zdrowie-backend.vercel.app/api/documents/${user.id}?page=${files.page}`);
       setFiles(res.data);
     } catch (err) {
       setError('Błąd pobierania plików');
     }
-  };
+  }, [user, files.page]);
 
-  const fetchParameters = async () => {
+  const fetchParameters = useCallback(async () => {
+    if (!user?.id) return;
     try {
       const res = await axios.get(`https://zdrowie-backend.vercel.app/api/parameters/${user.id}`);
       setParameters(res.data);
@@ -108,7 +72,77 @@ function App() {
     } catch (err) {
       setError('Błąd pobierania parametrów');
     }
-  };
+  }, [user]);
+
+  const generateChartData = useCallback(() => {
+    const datasets = {};
+    parameters.forEach(param => {
+      if (!selectedParams.includes(param.parameter_name)) return;
+      const key = param.parameter_name;
+      if (!datasets[key]) {
+        datasets[key] = {
+          label: key,
+          data: [],
+          borderColor: `#${Math.floor(Math.random()*16777215).toString(16)}`,
+          tension: 0.1
+        };
+      }
+      let yVal = parseFloat(
+        String(param.parameter_value)
+          .replace(/[^0-9,.-]/g, '')
+          .replace(/,/g, '.')
+      );
+      let xVal = new Date(param.measurement_date);
+      if (!isNaN(xVal) && !isNaN(yVal)) {
+        datasets[key].data.push({
+          x: xVal,
+          y: yVal
+        });
+      }
+    });
+    setChartData({
+      labels: [],
+      datasets: Object.values(datasets)
+    });
+  }, [selectedParams, parameters]);
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      const parsedUser = JSON.parse(storedUser);
+      setUser(parsedUser);
+      setEditForm(parsedUser);
+      setView('main');
+      setShowLanding(false);
+    }
+  }, []);
+
+  
+
+  useEffect(() => {
+    const checkExistingAnalysis = async () => {
+      try {
+        const res = await axios.get(`https://zdrowie-backend.vercel.app/api/documents/${user.id}`);
+        if (res.data.documents.length > 0 && res.data.documents[0].analysis) {
+          setSummary(res.data.documents[0].analysis);
+        }
+      } catch (err) {
+        console.error('Błąd pobierania analizy:', err);
+      }
+    };
+    if (user && user.id) {
+      checkExistingAnalysis();
+      fetchFiles();
+      fetchParameters();
+    }
+  }, [user, files.page, fetchFiles, fetchParameters]);
+
+
+  useEffect(() => {
+    if (view === 'chart') {
+      generateChartData();
+    }
+  }, [view, generateChartData]);
 
   const sanitizePhone = (phone) => phone.replace(/[\s-]/g, '');
   const isValidPhone = (phone) => /^(\+48)?\d{9}$/.test(sanitizePhone(phone));
@@ -310,38 +344,6 @@ const handleDeleteUserData = async () => {
 
   const handleDeselectAll = () => {
     setSelectedParams([]);
-  };
-
-  const generateChartData = () => {
-    const datasets = {};
-    parameters.forEach(param => {
-      if (!selectedParams.includes(param.parameter_name)) return;
-      const key = param.parameter_name;
-      if (!datasets[key]) {
-        datasets[key] = {
-          label: key,
-          data: [],
-          borderColor: `#${Math.floor(Math.random()*16777215).toString(16)}`,
-          tension: 0.1
-        };
-      }
-      let yVal = parseFloat(
-        String(param.parameter_value)
-          .replace(/[^0-9,.-]/g, '')
-          .replace(/,/g, '.')
-      );
-      let xVal = new Date(param.measurement_date);
-      if (!isNaN(xVal) && !isNaN(yVal)) {
-        datasets[key].data.push({
-          x: xVal,
-          y: yVal
-        });
-      }
-    });
-    setChartData({
-      labels: [],
-      datasets: Object.values(datasets)
-    });
   };
 
   const handleSummarize = async () => {

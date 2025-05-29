@@ -343,26 +343,26 @@ function Landing({ onLoginClick, onRegisterClick }) {
                 <ul>
                   <li><a href="#features">Funkcje</a></li>
                   <li><a href="#pricing">Cennik</a></li>
-                  <li><a href="#">API</a></li>
-                  <li><a href="#">Bezpieczeństwo</a></li>
+                  <li><button className="footer-link-btn" onClick={() => {}}>API</button></li>
+                  <li><button className="footer-link-btn" onClick={() => {}}>Bezpieczeństwo</button></li>
                 </ul>
               </div>
               <div className="footer-column">
                 <h4>Firma</h4>
                 <ul>
-                  <li><a href="#">O nas</a></li>
-                  <li><a href="#">Kariera</a></li>
-                  <li><a href="#">Blog</a></li>
-                  <li><a href="#">Kontakt</a></li>
+                  <li><button className="footer-link-btn" onClick={() => {}}>O nas</button></li>
+                  <li><button className="footer-link-btn" onClick={() => {}}>Kariera</button></li>
+                  <li><button className="footer-link-btn" onClick={() => {}}>Blog</button></li>
+                  <li><button className="footer-link-btn" onClick={() => {}}>Kontakt</button></li>
                 </ul>
               </div>
               <div className="footer-column">
                 <h4>Pomoc</h4>
                 <ul>
-                  <li><a href="#">Dokumentacja</a></li>
-                  <li><a href="#">Wsparcie</a></li>
-                  <li><a href="#">Status</a></li>
-                  <li><a href="#">FAQ</a></li>
+                  <li><button className="footer-link-btn" onClick={() => {}}>Dokumentacja</button></li>
+                  <li><button className="footer-link-btn" onClick={() => {}}>Wsparcie</button></li>
+                  <li><button className="footer-link-btn" onClick={() => {}}>Status</button></li>
+                  <li><button className="footer-link-btn" onClick={() => {}}>FAQ</button></li>
                 </ul>
               </div>
             </div>
@@ -371,9 +371,9 @@ function Landing({ onLoginClick, onRegisterClick }) {
             <div className="footer-bottom-content">
               <p>&copy; 2025 MedAnalyzer. Wszystkie prawa zastrzeżone.</p>
               <div className="footer-legal">
-                <a href="#">Polityka prywatności</a>
-                <a href="#">Regulamin</a>
-                <a href="#">RODO</a>
+                <button className="footer-link-btn" onClick={() => {}}>Polityka prywatności</button>
+                <button className="footer-link-btn" onClick={() => {}}>Regulamin</button>
+                <button className="footer-link-btn" onClick={() => {}}>RODO</button>
               </div>
             </div>
           </div>

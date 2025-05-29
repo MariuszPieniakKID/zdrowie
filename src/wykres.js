@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React from 'react';
 import { Line } from 'react-chartjs-2';
 import { pl } from 'date-fns/locale';
 import { FaHourglass } from 'react-icons/fa';
