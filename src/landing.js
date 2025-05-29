@@ -1,281 +1,381 @@
 import React from 'react';
 import './landing.css';
+import { FaRocket, FaChartLine, FaBrain, FaShieldAlt, FaUsers, FaClock, FaHeart, FaFlask, FaMicroscope, FaDna } from 'react-icons/fa';
 
 function Landing({ onLoginClick, onRegisterClick }) {
   return (
-    <div className="app">
-     <header className="header">
-  <div className="header-left">
-    <span className="nav-item">Firma</span>
-    <span className="nav-item">Zespół</span>
-    <span className="nav-item">Cennik</span>
-  </div>
-  <div className="header-right">
-    <span className="nav-item" onClick={onLoginClick} style={{ cursor: 'pointer' }}>Zaloguj </span>
-    <span className="nav-item" onClick={onRegisterClick} style={{ cursor: 'pointer' }}>Zarejestruj</span>
-  </div>
-</header>
+    <div className="modern-app">
+      {/* Animated background */}
+      <div className="animated-bg">
+        <div className="bg-particle"></div>
+        <div className="bg-particle"></div>
+        <div className="bg-particle"></div>
+        <div className="bg-particle"></div>
+        <div className="bg-particle"></div>
+      </div>
 
-
-      <section className="hero">
-        <div className="hero-content">
-          <h1>Twoje zdrowie.<br />Nasza analiza.</h1>
-          <p>Zaawansowana analiza wyników, dostępna zawsze dla Ciebie i lekarza.</p>
-          <div className="button-group">
-            <button className="primary-button">Primary Action</button>
-            <button className="secondary-button">Secondary Action</button>
+      {/* Modern Header */}
+      <header className="modern-header">
+        <div className="header-container">
+          <div className="logo-section">
+            <div className="logo-icon">
+              <FaHeart className="pulse-animation" />
+            </div>
+            <span className="logo-text">MedAnalyzer</span>
+          </div>
+          <nav className="nav-links">
+            <a href="#features" className="nav-link">Funkcje</a>
+            <a href="#how-it-works" className="nav-link">Jak działa</a>
+            <a href="#pricing" className="nav-link">Cennik</a>
+          </nav>
+          <div className="auth-buttons">
+            <button className="ghost-btn" onClick={onLoginClick}>
+              Zaloguj się
+            </button>
+            <button className="gradient-btn" onClick={onRegisterClick}>
+              Rozpocznij analizę
+            </button>
           </div>
         </div>
-        <div className="hero-image">
-          <div className="stats-box">
-            <div className="stat">
-              <h3>250+</h3>
-              <p>analizowanych parametrów</p>
-            </div>
-            <div className="placeholder-image"></div>
-            <div className="stat">
-              <h3>67%</h3>
-              <p>dokładniejszych diagnoz</p>
-            </div>
-          </div>
-        </div>
-      </section>
+      </header>
 
-      <section className="features">
-        <h2>Jak to działa?</h2>
-        <p>Krótki opis procesu AI do analizy wyników badań. Znajdź swoje rozwiązanie dzięki sztucznej inteligencji, która bazuje na wiedzy Twoich lekarzy. Niski, wysoki, Twój - historia pokazuje.</p>
-        <div className="features-grid">
-          <div className="feature-card">
-            <div className="feature-icon">📋</div>
-            <h3>Zleć badania</h3>
-            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
-          </div>
-          <div className="feature-card">
-            <div className="feature-icon">🔬</div>
-            <h3>Prześlij wyniki</h3>
-            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
-          </div>
-          <div className="feature-card">
-            <div className="feature-icon">📊</div>
-            <h3>Otrzymaj analizę</h3>
-            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
-          </div>
-        </div>
-      </section>
-
-      <section className="ai-analysis">
-        <h2>Jak wygląda analiza AI?</h2>
-        <p>Krótki opis procesu AI do analizy wyników badań. Znajdź swoje rozwiązanie dzięki sztucznej inteligencji, która bazuje na wiedzy Twoich lekarzy.</p>
-        <div className="analysis-grid">
-          <div className="analysis-card">
-            <h3>Historia wyników</h3>
-            <div className="history-chart">
-              <div className="chart-row">
-                <span>Badanie</span>
-                <span>Wynik</span>
-              </div>
-              <div className="chart-row">
-                <span>Glukoza</span>
-                <span>95 mg/dl</span>
-              </div>
-              <div className="chart-row">
-                <span>Cholesterol</span>
-                <span>175 mg/dl</span>
-              </div>
-              <div className="chart-line-graph"></div>
+      {/* Hero Section */}
+      <section className="modern-hero">
+        <div className="hero-container">
+          <div className="hero-content">
+            <div className="hero-badge">
+              <FaBrain className="badge-icon" />
+              <span>Zaawansowana analiza AI</span>
             </div>
-          </div>
-          <div className="analysis-card">
-            <h3>Analiza wyników AI</h3>
-            <div className="ai-analysis-content">
-              <div className="ai-section">
-                <h4>Hemoglobina</h4>
-                <p>Twój wynik hemoglobiny wynosi 14,2 g/dl, co mieści się w normie referencyjnej określonej przez lekarzy dla Twojej płci i wieku (13-18 g/dl).</p>
+            <h1 className="hero-title">
+              Twoje wyniki badań,
+              <span className="gradient-text"> nasza inteligencja</span>
+            </h1>
+            <p className="hero-description">
+              Przeanalizuj wyniki badań medycznych w sekundach dzięki zaawansowanej sztucznej inteligencji. 
+              Otrzymaj precyzyjne interpretacje, wykryj trendy i zadbaj o swoje zdrowie świadomie.
+            </p>
+            <div className="hero-actions">
+              <button className="cta-primary" onClick={onRegisterClick}>
+                <FaRocket />
+                Zacznij analizę za darmo
+              </button>
+              <button className="cta-secondary">
+                <FaChartLine />
+                Zobacz przykład analizy
+              </button>
+            </div>
+            <div className="trust-indicators">
+              <div className="trust-item">
+                <FaShieldAlt />
+                <span>100% bezpieczne</span>
               </div>
-              <div className="ai-section">
-                <h4>Płytki</h4>
-                <p>Poziom płytek krwi jest w normie (350 tys./μl), co świadczy o prawidłowej funkcji płytkowej organizmu. Płytki krwi odpowiadają za krzepnięcie krwi i zapobieganie krwawieniom.</p>
+              <div className="trust-item">
+                <FaUsers />
+                <span>5000+ użytkowników</span>
               </div>
-              <div className="ai-section">
-                <h4>Komentarz AI</h4>
-                <p>Wyniki Twoich badań krwi (HGB 14,2 g/dl, PLT 350 tys./μl) są prawidłowe i świadczą o dobrym stanie zdrowia w zakresie funkcjonowania elementów morfotycznych krwi. Wartości mieszczą się w przedziałach referencyjnych dla Twojego wieku i płci.</p>
+              <div className="trust-item">
+                <FaClock />
+                <span>Wyniki w 30 sekund</span>
               </div>
             </div>
           </div>
+          <div className="hero-visual">
+            <div className="floating-card main-card">
+              <div className="card-header">
+                <div className="status-indicator active"></div>
+                <span>Analiza w toku</span>
+                <div className="progress-ring">
+                  <svg className="progress-svg">
+                    <circle cx="20" cy="20" r="18" className="progress-circle"></circle>
+                  </svg>
+                  <span className="progress-text">87%</span>
+                </div>
+              </div>
+              <div className="card-content">
+                <div className="analysis-row">
+                  <span className="param-name">Hemoglobina</span>
+                  <span className="param-value normal">14.2 g/dl</span>
+                  <div className="param-status good">✓</div>
+                </div>
+                <div className="analysis-row">
+                  <span className="param-name">Cholesterol</span>
+                  <span className="param-value warning">220 mg/dl</span>
+                  <div className="param-status warning">⚠</div>
+                </div>
+                <div className="analysis-row">
+                  <span className="param-name">Glukoza</span>
+                  <span className="param-value normal">95 mg/dl</span>
+                  <div className="param-status good">✓</div>
+                </div>
+              </div>
+            </div>
+            <div className="floating-card stats-card">
+              <h4>Twoje trendy</h4>
+              <div className="mini-chart">
+                <div className="chart-bars">
+                  <div className="bar" style={{height: '60%'}}></div>
+                  <div className="bar" style={{height: '80%'}}></div>
+                  <div className="bar" style={{height: '45%'}}></div>
+                  <div className="bar active" style={{height: '90%'}}></div>
+                </div>
+              </div>
+              <span className="trend-text">↗ Poprawa o 15%</span>
+            </div>
+          </div>
         </div>
       </section>
 
-      <section className="care-options">
-        <h2>Wybierz, jak mamy się o Ciebie troszczyć</h2>
-        <p>Krótki opis dostępnych opcji opieki zdrowotnej. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
-        <div className="care-grid">
-          <div className="care-card">
-            <div className="care-image"></div>
-            <h3>Podstawowa opieka</h3>
-            <p>Poznaj pełną charakterystykę dla wybranej kategorii usług</p>
-            <button className="outline-button">Sprawdź Plan</button>
+      {/* Features Section */}
+      <section id="features" className="features-section">
+        <div className="container">
+          <div className="section-header">
+            <h2>Dlaczego warto wybrać naszą platformę?</h2>
+            <p>Nowoczesne narzędzia analityczne wsparte sztuczną inteligencją</p>
           </div>
-          <div className="care-card">
-            <div className="care-image"></div>
-            <h3>Pakiety</h3>
-            <p>Poznaj pełną charakterystykę dla wybranej kategorii usług</p>
-            <button className="outline-button">Sprawdź Plan</button>
-          </div>
-          <div className="care-card">
-            <div className="care-image"></div>
-            <h3>Abonament</h3>
-            <p>Poznaj pełną charakterystykę dla wybranej kategorii usług</p>
-            <button className="outline-button">Sprawdź Plan</button>
+          <div className="features-grid">
+            <div className="feature-card">
+              <div className="feature-icon gradient-bg">
+                <FaBrain />
+              </div>
+              <h3>Analiza AI w czasie rzeczywistym</h3>
+              <p>Zaawansowane algorytmy uczenia maszynowego analizują Twoje wyniki natychmiast, wykrywając nieprawidłowości i trendy zdrowotne.</p>
+            </div>
+            <div className="feature-card">
+              <div className="feature-icon gradient-bg">
+                <FaChartLine />
+              </div>
+              <h3>Interaktywne wykresy i trendy</h3>
+              <p>Wizualizacja zmian w czasie z możliwością porównywania parametrów i śledzenia postępów w leczeniu.</p>
+            </div>
+            <div className="feature-card">
+              <div className="feature-icon gradient-bg">
+                <FaShieldAlt />
+              </div>
+              <h3>Bezpieczeństwo danych</h3>
+              <p>Pełne szyfrowanie end-to-end i zgodność z RODO. Twoje dane medyczne są chronione najwyższymi standardami.</p>
+            </div>
+            <div className="feature-card">
+              <div className="feature-icon gradient-bg">
+                <FaFlask />
+              </div>
+              <h3>Rozpoznawanie wszystkich formatów</h3>
+              <p>Automatyczne rozpoznawanie PDF-ów, obrazów i skanów wyników. Obsługa laboratoriów z całej Polski.</p>
+            </div>
+            <div className="feature-card">
+              <div className="feature-icon gradient-bg">
+                <FaMicroscope />
+              </div>
+              <h3>Precyzyjne interpretacje</h3>
+              <p>Szczegółowe wyjaśnienia każdego parametru z uwzględnieniem Twojego wieku, płci i historii medycznej.</p>
+            </div>
+            <div className="feature-card">
+              <div className="feature-icon gradient-bg">
+                <FaDna />
+              </div>
+              <h3>Predykcje zdrowotne</h3>
+              <p>Analiza predykcyjna ostrzegająca przed potencjalnymi problemami zdrowotnymi na podstawie trendów.</p>
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="parameters">
-        <h2>Parametry krwi - klucz do Twojego zdrowia</h2>
-        <p>Krótki opis znaczenia parametrów krwi dla zdrowia. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
-        <div className="parameters-grid">
-          <div className="parameter-card">
-            <div className="parameter-icon">🔬</div>
-            <h3>Badania ogólne</h3>
-            <ul className="parameter-list">
-              <li>Hemoglobina (HGB)</li>
-              <li>Erytrocyty (RBC)</li>
-              <li>Leukocyty (WBC)</li>
-              <li>Płytki krwi (PLT)</li>
-              <li>Hematokryt (HCT)</li>
-            </ul>
-            <span className="test-count">7-10 testów</span>
+      {/* How it works Section */}
+      <section id="how-it-works" className="how-it-works">
+        <div className="container">
+          <div className="section-header">
+            <h2>Jak to działa?</h2>
+            <p>Prosty proces w trzech krokach do pełnej analizy</p>
           </div>
-          <div className="parameter-card">
-            <div className="parameter-icon">🧪</div>
-            <h3>Badania biochemiczne</h3>
-            <ul className="parameter-list">
-              <li>Cholesterol (1-7)</li>
-              <li>Glukoza</li>
-              <li>Kwas moczowy (UA)</li>
-              <li>Enzymy wątrobowe (ALT, AST)</li>
-              <li>Bilirubina</li>
-            </ul>
-            <span className="test-count">7-12 testów</span>
+          <div className="steps-container">
+            <div className="step-card">
+              <div className="step-number">01</div>
+              <div className="step-icon">
+                <FaFlask />
+              </div>
+              <h3>Prześlij wyniki</h3>
+              <p>Wgraj plik PDF lub zdjęcie swoich wyników badań. Obsługujemy wszystkie popularne laboratoria w Polsce.</p>
+            </div>
+            <div className="step-arrow">→</div>
+            <div className="step-card">
+              <div className="step-number">02</div>
+              <div className="step-icon">
+                <FaBrain />
+              </div>
+              <h3>AI analizuje dane</h3>
+              <p>Nasza sztuczna inteligencja przetwarza wyniki w czasie rzeczywistym, porównując z normami i Twoją historią.</p>
+            </div>
+            <div className="step-arrow">→</div>
+            <div className="step-card">
+              <div className="step-number">03</div>
+              <div className="step-icon">
+                <FaChartLine />
+              </div>
+              <h3>Otrzymaj raporty</h3>
+              <p>Otrzymuj szczegółowe raporty, trendy czasowe i rekomendacje dotyczące Twojego zdrowia.</p>
+            </div>
           </div>
-          <div className="parameter-card">
-            <div className="parameter-icon">🧬</div>
-            <h3>Badania hormonalne</h3>
-            <ul className="parameter-list">
-              <li>TSH</li>
-              <li>FT3</li>
-              <li>FT4</li>
-              <li>Estrogeny</li>
-              <li>Testosteron</li>
-            </ul>
-            <span className="test-count">5-8 testów</span>
-          </div>
-          <div className="parameter-card">
-            <div className="parameter-icon">⚗️</div>
-            <h3>Badania metaboliczne</h3>
-            <ul className="parameter-list">
-              <li>HbA1c</li>
-              <li>CRP</li>
-              <li>Lipidogram</li>
-              <li>Insulina</li>
-              <li>Leptyna</li>
-            </ul>
-            <span className="test-count">7-10 testów</span>
-          </div>
-        </div>
-        <div className="center-button">
-          <button className="primary-button">Sprawdź Test</button>
         </div>
       </section>
 
+      {/* Pricing Section */}
+      <section id="pricing" className="pricing-section">
+        <div className="container">
+          <div className="section-header">
+            <h2>Wybierz plan dla siebie</h2>
+            <p>Elastyczne opcje dostosowane do Twoich potrzeb</p>
+          </div>
+          <div className="pricing-grid">
+            <div className="pricing-card">
+              <div className="plan-header">
+                <h3>Podstawowy</h3>
+                <div className="price">
+                  <span className="currency">Darmowy</span>
+                </div>
+                <p>Idealna do sporadycznego korzystania</p>
+              </div>
+              <ul className="features-list">
+                <li>✓ 3 analizy miesięcznie</li>
+                <li>✓ Podstawowe wykresy</li>
+                <li>✓ Analiza AI</li>
+                <li>✓ Bezpieczne przechowywanie</li>
+              </ul>
+              <button className="plan-btn basic" onClick={onRegisterClick}>Rozpocznij za darmo</button>
+            </div>
+            <div className="pricing-card featured">
+              <div className="popular-badge">Najpopularniejszy</div>
+              <div className="plan-header">
+                <h3>Pro</h3>
+                <div className="price">
+                  <span className="amount">29</span>
+                  <span className="currency">zł/mies</span>
+                </div>
+                <p>Dla osób dbających o zdrowie</p>
+              </div>
+              <ul className="features-list">
+                <li>✓ Nielimitowane analizy</li>
+                <li>✓ Zaawansowane wykresy</li>
+                <li>✓ Predykcje zdrowotne</li>
+                <li>✓ Eksport raportów PDF</li>
+                <li>✓ Powiadomienia o trendach</li>
+                <li>✓ Wsparcie priorytetowe</li>
+              </ul>
+              <button className="plan-btn pro" onClick={onRegisterClick}>Wypróbuj 14 dni za darmo</button>
+            </div>
+            <div className="pricing-card">
+              <div className="plan-header">
+                <h3>Enterprise</h3>
+                <div className="price">
+                  <span className="currency">Skontaktuj się</span>
+                </div>
+                <p>Dla klinik i placówek medycznych</p>
+              </div>
+              <ul className="features-list">
+                <li>✓ Wszystko z planu Pro</li>
+                <li>✓ API dostęp</li>
+                <li>✓ Niestandardowe integracje</li>
+                <li>✓ Dedykowany manager</li>
+                <li>✓ SLA 99.9%</li>
+              </ul>
+              <button className="plan-btn enterprise">Skontaktuj się</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Stats Section */}
       <section className="stats-section">
-        <h2>Bibendum amet at molestie mattis.</h2>
-        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Bibendum amet at molestie mattis. Consectetur in mattis lacus, ullamcorper ac. Nunc, amet, aliquot vulputate nullam facilisis pulvinar. Elementum scelerisque sit consequat non vel. Mattis leo lecturus aliquot ipsum fusce lectus.</p>
-        <div className="stats-container">
-          <div className="stats-box-large">
-            <div className="stat">
-              <h3>123</h3>
-              <p>Consectetur dolor sit</p>
+        <div className="container">
+          <div className="stats-grid">
+            <div className="stat-card">
+              <div className="stat-number">98%</div>
+              <div className="stat-label">Dokładność analizy</div>
             </div>
-            <div className="placeholder-image-large"></div>
-            <div className="stat">
-              <h3>67%</h3>
-              <p>Bibendum amet at</p>
+            <div className="stat-card">
+              <div className="stat-number">5000+</div>
+              <div className="stat-label">Użytkowników</div>
             </div>
-            <div className="stat">
-              <h3>+274</h3>
-              <p>Consectetur dolor sit</p>
+            <div className="stat-card">
+              <div className="stat-number">50k+</div>
+              <div className="stat-label">Przeanalizowanych wyników</div>
             </div>
-            <div className="stat">
-              <h3>+257</h3>
-              <p>Consectetur dolor sit</p>
+            <div className="stat-card">
+              <div className="stat-number">30s</div>
+              <div className="stat-label">Średni czas analizy</div>
             </div>
           </div>
         </div>
       </section>
 
+      {/* CTA Section */}
       <section className="cta-section">
-        <h2>Lorem ipsum dolor sit amet, consectetur adipiscing elit.<br />Bibendum amet at molestie mattis.</h2>
-        <div className="cta-grid">
-          <div className="cta-item">
-            <p>Curabitur elit id consectetur et leo vulputate nulla hendrerit.</p>
+        <div className="container">
+          <div className="cta-content">
+            <h2>Gotowy na inteligentną analizę zdrowia?</h2>
+            <p>Dołącz do tysięcy użytkowników, którzy już korzystają z naszej platformy</p>
+            <div className="cta-buttons">
+              <button className="cta-primary large" onClick={onRegisterClick}>
+                <FaRocket />
+                Rozpocznij analizę teraz
+              </button>
+              <button className="cta-secondary large" onClick={onLoginClick}>
+                Mam już konto
+              </button>
+            </div>
           </div>
-          <div className="cta-item">
-            <p>Ut enim ad minim veniam, quis nostrud exercitation ullamco.</p>
-          </div>
-          <div className="cta-item">
-            <p>Nunc, pellentesque amet consectetur non massa arcu.</p>
-          </div>
-          <div className="cta-item">
-            <p>Curabitur justo pellentesque et in nisi et amet. Nunc nulla.</p>
-          </div>
-        </div>
-        <div className="center-button">
-          <button className="primary-button">Zacznij teraz</button>
         </div>
       </section>
 
-      <footer className="footer">
-        <div className="footer-logo">
-          <span>🏥</span>
-        </div>
-        <div className="footer-columns">
-          <div className="footer-column">
-            <h4>Column One</h4>
-            <ul>
-              <li>First Item</li>
-              <li>Second Item</li>
-              <li>Third Item</li>
-              <li>Fourth Item</li>
-            </ul>
+      {/* Modern Footer */}
+      <footer className="modern-footer">
+        <div className="container">
+          <div className="footer-content">
+            <div className="footer-brand">
+              <div className="footer-logo">
+                <FaHeart />
+                <span>MedAnalyzer</span>
+              </div>
+              <p>Nowoczesna platforma analizy wyników badań medycznych wykorzystująca sztuczną inteligencję.</p>
+            </div>
+            <div className="footer-links">
+              <div className="footer-column">
+                <h4>Produkt</h4>
+                <ul>
+                  <li><a href="#features">Funkcje</a></li>
+                  <li><a href="#pricing">Cennik</a></li>
+                  <li><a href="#">API</a></li>
+                  <li><a href="#">Bezpieczeństwo</a></li>
+                </ul>
+              </div>
+              <div className="footer-column">
+                <h4>Firma</h4>
+                <ul>
+                  <li><a href="#">O nas</a></li>
+                  <li><a href="#">Kariera</a></li>
+                  <li><a href="#">Blog</a></li>
+                  <li><a href="#">Kontakt</a></li>
+                </ul>
+              </div>
+              <div className="footer-column">
+                <h4>Pomoc</h4>
+                <ul>
+                  <li><a href="#">Dokumentacja</a></li>
+                  <li><a href="#">Wsparcie</a></li>
+                  <li><a href="#">Status</a></li>
+                  <li><a href="#">FAQ</a></li>
+                </ul>
+              </div>
+            </div>
           </div>
-          <div className="footer-column">
-            <h4>Column Two</h4>
-            <ul>
-              <li>First Item</li>
-              <li>Second Item</li>
-              <li>Third Item</li>
-              <li>Fourth Item</li>
-              <li>Fifth Item</li>
-            </ul>
-          </div>
-          <div className="footer-column">
-            <h4>Column Three</h4>
-            <ul>
-              <li>First Item</li>
-              <li>Second Item</li>
-              <li>Third Item</li>
-              <li>Fourth Item</li>
-              <li>Fifth Item</li>
-            </ul>
-          </div>
-        </div>
-        <div className="footer-bottom">
-          <p>© Copyright 2025. All rights reserved.</p>
-          <div className="footer-links">
-            <a href="#">Cookies</a>
-            <a href="#">Privacy</a>
-            <a href="#">Terms</a>
+          <div className="footer-bottom">
+            <div className="footer-bottom-content">
+              <p>&copy; 2025 MedAnalyzer. Wszystkie prawa zastrzeżone.</p>
+              <div className="footer-legal">
+                <a href="#">Polityka prywatności</a>
+                <a href="#">Regulamin</a>
+                <a href="#">RODO</a>
+              </div>
+            </div>
           </div>
         </div>
       </footer>
