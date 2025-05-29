@@ -6,7 +6,17 @@ const Tesseract = require('tesseract.js');
 const cheerio = require('cheerio');
 const fetch = require('node-fetch');
 
-// GPT-4 Vision function (simplified for Vercel - images only)
+// Próbuj załadować pdf-poppler i sharp tylko jeśli są dostępne (lokalnie)
+let pdf, sharp;
+try {
+  pdf = require('pdf-poppler');
+  sharp = require('sharp');
+  console.log('✅ pdf-poppler i sharp dostępne - konwersja PDF do obrazów włączona');
+} catch (error) {
+  console.log('⚠️ pdf-poppler lub sharp niedostępne - konwersja PDF do obrazów wyłączona');
+}
+
+// GPT-4 Vision function z obsługą konwersji PDF → obraz
 async function analyzeFileWithGPT4Vision(filePath, symptoms, chronic_diseases, medications) {
   try {
     console.log('🤖 Próbuję GPT-4 Vision...');
@@ -15,28 +25,83 @@ async function analyzeFileWithGPT4Vision(filePath, symptoms, chronic_diseases, m
       throw new Error('OpenAI API niedostępne');
     }
 
+    let base64Images = [];
     const fileExtension = path.extname(filePath).toLowerCase();
     
     if (fileExtension === '.pdf') {
-      // Na Vercel nie obsługujemy PDF-ów z GPT-4 Vision
-      throw new Error('PDF-to-image conversion nie jest dostępny na Vercel - użyj innych metod OCR');
-    } else if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(fileExtension)) {
-      const imageBuffer = fs.readFileSync(filePath);
-      const base64 = imageBuffer.toString('base64');
+      // Próbuj konwertować PDF na obrazy (tylko jeśli pdf-poppler jest dostępne)
+      if (!pdf || !sharp) {
+        throw new Error('PDF-to-image conversion niedostępny na tym środowisku - użyj innych metod OCR');
+      }
       
-      let mimeType = 'image/jpeg';
-      if (base64.startsWith('/9j/')) mimeType = 'image/jpeg';
-      else if (base64.startsWith('iVBORw0KGgo')) mimeType = 'image/png';
-      else if (base64.startsWith('R0lGODlh')) mimeType = 'image/gif';
+      console.log('📄 Konwertuję PDF na obrazy...');
+      
+      const outputDir = path.join(path.dirname(filePath), 'temp_images');
+      if (!fs.existsSync(outputDir)) {
+        fs.mkdirSync(outputDir, { recursive: true });
+      }
+      
+      const options = {
+        format: 'jpeg',
+        out_dir: outputDir,
+        out_prefix: 'page',
+        page: null // wszystkie strony
+      };
+      
+      const pdfData = await pdf.convert(filePath, options);
+      console.log(`📄 Skonwertowano ${pdfData.length} stron PDF`);
+      
+      // Czytaj każdą stronę jako base64
+      for (let i = 1; i <= pdfData.length; i++) {
+        const imagePath = path.join(outputDir, `page-${i}.jpg`);
+        if (fs.existsSync(imagePath)) {
+          // Zmniejsz rozmiar obrazu dla OpenAI
+          const optimizedBuffer = await sharp(imagePath)
+            .resize(1500, null, { withoutEnlargement: true, fit: 'inside' })
+            .jpeg({ quality: 85 })
+            .toBuffer();
+          
+          const base64 = optimizedBuffer.toString('base64');
+          base64Images.push(base64);
+        }
+      }
+      
+      // Sprzątanie
+      fs.rmSync(outputDir, { recursive: true, force: true });
+      
+    } else if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(fileExtension)) {
+      console.log('🖼️ Przetwarzam obraz...');
+      
+      // Bezpośrednio obraz
+      let imageBuffer;
+      if (sharp) {
+        // Optymalizacja obrazu jeśli sharp dostępne
+        imageBuffer = await sharp(filePath)
+          .resize(1500, null, { withoutEnlargement: true, fit: 'inside' })
+          .jpeg({ quality: 85 })
+          .toBuffer();
+      } else {
+        // Bez optymalizacji
+        imageBuffer = fs.readFileSync(filePath);
+      }
+      
+      const base64 = imageBuffer.toString('base64');
+      base64Images.push(base64);
+    } else {
+      throw new Error(`Nieobsługiwany format pliku: ${fileExtension}`);
+    }
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [{
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: `Jestem lekarzem analizującym wyniki badań medycznych. 
+    if (base64Images.length === 0) {
+      throw new Error('Nie udało się przygotować obrazów');
+    }
+
+    console.log(`🖼️ Przygotowano ${base64Images.length} obrazów dla GPT-4 Vision`);
+
+    // Przygotuj wiadomości dla GPT-4 Vision
+    const content = [
+      {
+        type: "text",
+        text: `Jestem lekarzem analizującym wyniki badań medycznych. 
 
 KONTEKST PACJENTA:
 - Symptomy: ${symptoms || 'brak'}
@@ -53,30 +118,51 @@ Podaj wyniki w tabeli HTML <table> z kolumnami:
 - Data badania (YYYY-MM-DD)
 
 Jeśli nie ma wyraźnej daty, użyj dzisiejszej. Jeśli nie ma zakresów referencyjnych, dodaj standardowe.
-Zaznacz wartości poza normą.`
-            },
-            {
-              type: "image_url",
-              image_url: {
-                url: `data:${mimeType};base64,${base64}`,
-                detail: "high"
-              }
-            }
-          ]
-        }],
-        max_tokens: 4000,
-        temperature: 0.1
-      });
+Zaznacz wartości poza normą.
 
-      return { 
-        success: true, 
-        analysis: response.choices[0].message.content,
-        method: 'GPT-4 Vision (obrazy)',
-        images_processed: 1
-      };
-    } else {
-      throw new Error(`Nieobsługiwany format pliku: ${fileExtension}`);
-    }
+Przeanalizuj dokładnie każdy element na obrazach.`
+      }
+    ];
+
+    // Dodaj wszystkie obrazy
+    base64Images.forEach((base64, index) => {
+      // Wykryj typ obrazu na podstawie pierwszych bajtów
+      let mimeType = 'image/jpeg';
+      if (base64.startsWith('/9j/')) mimeType = 'image/jpeg';
+      else if (base64.startsWith('iVBORw0KGgo')) mimeType = 'image/png';
+      else if (base64.startsWith('R0lGODlh')) mimeType = 'image/gif';
+      
+      content.push({
+        type: "image_url",
+        image_url: {
+          url: `data:${mimeType};base64,${base64}`,
+          detail: "high" // wysoka jakość analizy
+        }
+      });
+    });
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o", // GPT-4 Vision
+      messages: [
+        {
+          role: "user",
+          content: content
+        }
+      ],
+      max_tokens: 4000,
+      temperature: 0.1
+    });
+
+    const analysis = response.choices[0].message.content;
+    console.log('✅ GPT-4 Vision - sukces!');
+    
+    return { 
+      success: true, 
+      analysis: analysis,
+      method: pdf && sharp ? 'GPT-4 Vision (PDF→obraz)' : 'GPT-4 Vision (obraz)',
+      images_processed: base64Images.length
+    };
+
   } catch (error) {
     console.log('❌ GPT-4 Vision failed:', error.message);
     return { success: false, error: error.message };
@@ -136,25 +222,38 @@ function isTextReadable(text) {
 async function extractTextFromPDF(filePath, symptoms = '', chronic_diseases = '', medications = '') {
   console.log('🔍 Rozpoczynam ekstrakcję tekstu z PDF...');
   
-  // Najpierw próbuj GPT-4 Vision (jeśli dostępne)
-  if (openai) {
-    console.log('🤖 Próbuję GPT-4 Vision jako pierwszą opcję...');
-    const visionResult = await analyzeFileWithGPT4Vision(filePath, symptoms, chronic_diseases, medications);
-    
-    if (visionResult.success) {
-      console.log(`✅ GPT-4 Vision sukces - przetworzono ${visionResult.images_processed} obrazów`);
-      return {
-        text: visionResult.analysis,
-        method: 'GPT-4 Vision',
-        isDirectAnalysis: true
-      };
-    } else {
-      console.log(`⚠️ GPT-4 Vision failed: ${visionResult.error}, próbuję inne metody...`);
+  const fileExtension = path.extname(filePath).toLowerCase();
+  
+  // Najpierw sprawdź czy to PDF czy obraz
+  if (fileExtension !== '.pdf') {
+    // Dla obrazów: bezpośrednio GPT-4 Vision
+    if (openai) {
+      console.log('🖼️ Obraz - próbuję GPT-4 Vision...');
+      const visionResult = await analyzeFileWithGPT4Vision(filePath, symptoms, chronic_diseases, medications);
+      
+      if (visionResult.success) {
+        console.log(`✅ GPT-4 Vision sukces dla obrazu`);
+        return {
+          text: visionResult.analysis,
+          method: 'GPT-4 Vision (obraz)',
+          isDirectAnalysis: true
+        };
+      }
     }
+    
+    // Fallback dla obrazów: Tesseract
+    console.log('⚠️ GPT-4 Vision failed dla obrazu, próbuję Tesseract...');
+    const text = await extractTextWithTesseract(filePath);
+    if (text && text.trim().length > 20) {
+      console.log('✅ Tesseract OCR sukces');
+      return { text, method: 'Tesseract', isDirectAnalysis: false };
+    }
+    
+    throw new Error('Nie udało się wyciągnąć tekstu z obrazu.');
   }
-
-  // Fallback: pdf-parse
-  console.log('📄 Próbuję pdf-parse...');
+  
+  // Dla PDF-ów: najpierw sprawdź pdf-parse
+  console.log('📄 PDF - próbuję pdf-parse...');
   let text = await extractTextFromPDFLocal(filePath);
   
   if (text && isTextReadable(text)) {
@@ -165,25 +264,35 @@ async function extractTextFromPDF(filePath, symptoms = '', chronic_diseases = ''
     console.log('📝 Przykład tekstu:', text.substring(0, 200));
   }
   
-  // Fallback: Tesseract - ale na Vercel nie zadziała z PDF
-  console.log('⚠️ PDF-parse nie wykrył czytelnego tekstu, próbuję Tesseract OCR...');
-  
-  // Informacja o ograniczeniach Vercel
-  const fileExtension = path.extname(filePath).toLowerCase();
-  if (fileExtension === '.pdf') {
-    console.log('❌ Tesseract na Vercel nie obsługuje PDF-ów bezpośrednio');
-    throw new Error('Plik PDF jest zeskanowanym dokumentem i wymaga OCR. Na Vercel nie można konwertować PDF na obrazy. Spróbuj przesłać plik jako obraz (JPG/PNG) lub użyj PDF z tekstem cyfrowym.');
+  // PDF jest nieczytelny - próbuj konwersję PDF → obraz → GPT-4 Vision
+  if (openai) {
+    console.log('🤖 PDF nieczytelny - próbuję konwersję PDF→obraz→GPT-4 Vision...');
+    const visionResult = await analyzeFileWithGPT4Vision(filePath, symptoms, chronic_diseases, medications);
+    
+    if (visionResult.success) {
+      console.log(`✅ GPT-4 Vision sukces - przetworzono ${visionResult.images_processed} stron PDF`);
+      return {
+        text: visionResult.analysis,
+        method: visionResult.method,
+        isDirectAnalysis: true
+      };
+    } else {
+      console.log(`⚠️ GPT-4 Vision PDF→obraz failed: ${visionResult.error}`);
+    }
   }
   
-  text = await extractTextWithTesseract(filePath);
+  // Ostatnia szansa: Tesseract (ale nie zadziała z PDF)
+  console.log('⚠️ Ostatnia próba - Tesseract OCR...');
   
-  if (text && text.trim().length > 20) {
-    console.log('✅ Tesseract OCR sukces');
-    return { text, method: 'Tesseract', isDirectAnalysis: false };
+  // Informacja o ograniczeniach
+  if (!pdf || !sharp) {
+    console.log('❌ Konwersja PDF→obraz niedostępna na tym środowisku');
+    throw new Error('Plik PDF jest zeskanowanym dokumentem i wymaga OCR. Na tym środowisku nie można konwertować PDF na obrazy. Spróbuj przesłać plik jako obraz (JPG/PNG) lub użyj PDF z tekstem cyfrowym.');
   }
   
-  console.log('❌ Wszystkie metody OCR zawiodły');
-  throw new Error('Nie udało się wyciągnąć tekstu z PDF. Sprawdź czy plik zawiera czytelny tekst.');
+  // Tesseract nie radzi sobie z PDF bezpośrednio
+  console.log('❌ Tesseract nie może czytać PDF-ów bezpośrednio');
+  throw new Error('Nie udało się wyciągnąć tekstu z PDF. Wszystkie metody OCR zawiodły.');
 }
 
 export default async function handler(req, res) {
