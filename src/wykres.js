@@ -1,21 +1,15 @@
 import React from 'react';
 import { Line } from 'react-chartjs-2';
-import { pl } from 'date-fns/locale';
-import { FaChartLine, FaTable, FaCheckSquare, FaSquare, FaBrain } from 'react-icons/fa';
-import { Chart as ChartJS, registerables } from 'chart.js';
-import 'chartjs-adapter-date-fns';
+import { FaChartLine, FaCheckSquare, FaSquare, FaBrain, FaCalendarAlt, FaChartBar, FaTable, FaInfoCircle } from 'react-icons/fa';
 import './components.css';
 
-ChartJS.register(...registerables);
-
 /**
- * Komponent wyświetlający wykres i tabelę wyników wraz z analizą.
+ * Komponent wyświetlający wykresy parametrów zdrowotnych i analizę AI.
  */
 function WykresWynikow({
   parameters,
   selectedParams,
   chartData,
-  styles,
   handleParamToggle,
   handleSummarize,
   summary,
@@ -23,103 +17,7 @@ function WykresWynikow({
   handleSelectAll,
   handleDeselectAll
 }) {
-  // Funkcja generująca analizę na podstawie wartości parametrów
-  // DOSTOSUJ ZAKRESY (ranges) DO SWOICH DANYCH
-  const generateAnalysis = (paramName, value, units) => {
-    const ranges = {
-      'Hemoglobina': { min: 12, max: 16 },
-      'Leukocyty': { min: 4, max: 10 },
-      'Erytrocyty': { min: 4.2, max: 5.4 },
-      'Glukoza': { min: 70, max: 99 },
-      'Cholesterol': { min: 0, max: 200 },
-      // Dodaj więcej parametrów i ich prawidłowe zakresy według potrzeb
-    };
-
-    const defaultRange = { min: 0, max: 100 }; // Domyślny zakres, jeśli parametr nie jest zdefiniowany w `ranges`
-    const range = ranges[paramName] || defaultRange;
-    const numValue = parseFloat(value);
-
-    if (isNaN(numValue)) return ''; // Jeśli wartość nie jest liczbą, nie generuj analizy
-
-    if (numValue > range.max) {
-      return `Prawidłowy zakres: ${range.min}–${range.max} ${units || ''}. Wynik powyżej normy.`;
-    } else if (numValue < range.min) {
-      return `Prawidłowy zakres: ${range.min}–${range.max} ${units || ''}. Wynik poniżej normy.`;
-    } else {
-      return `Prawidłowy zakres: ${range.min}–${range.max} ${units || ''}. Wynik w normie.`;
-    }
-  };
-
-  // Grupowanie danych dla tabeli z wykorzystaniem pola "analysis"
-  const groupedData = parameters.reduce((acc, param) => {
-    if (!selectedParams.includes(param.parameter_name)) return acc;
-    const key = param.parameter_name;
-    const date = new Date(param.measurement_date).toLocaleDateString('pl-PL');
-    if (!acc[key]) {
-      acc[key] = {
-        values: {},
-        units: param.units,
-        analysis: {}
-      };
-    }
-    acc[key].values[date] = param.parameter_value;
-
-    // Jeśli oryginalna analiza jest pusta lub jej brakuje, wygeneruj ją
-    if (!param.analysis || String(param.analysis).trim() === '') {
-      acc[key].analysis[date] = generateAnalysis(
-        param.parameter_name,
-        param.parameter_value,
-        param.units
-      );
-    } else {
-      acc[key].analysis[date] = param.analysis;
-    }
-    return acc;
-  }, {});
-
-  // Unikalne daty posortowane chronologicznie
-  const uniqueDates = [...new Set(parameters.map(p =>
-    new Date(p.measurement_date).toLocaleDateString('pl-PL')
-  ))].sort((a, b) => new Date(a.split('.').reverse().join('-')) - new Date(b.split('.').reverse().join('-')));
-
-  // Funkcja określająca styl i strzałkę na podstawie analizy
-  const getCellProps = (analysisInput) => {
-    if (!analysisInput || String(analysisInput).trim() === '') {
-      return { bg: 'transparent', arrow: null };
-    }
-
-    const analysisText = String(analysisInput).toLowerCase(); // Konwersja do małych liter
-
-    // Priorytet 1: Czerwone tło dla wyników nieprawidłowych
-    // Czerwony, strzałka w górę
-    if (
-      analysisText.includes('podwyższone') || // Obejmuje "nieznacznie podwyższone"
-      analysisText.includes('powyżej norm')   // Obejmuje "powyżej normy", "powyżej norm." itp.
-    ) {
-      return { bg: 'rgba(239, 68, 68, 0.1)', arrow: '↑', color: 'var(--accent-red)' };
-    }
-
-    // Czerwony, strzałka w dół
-    if (
-      analysisText.includes('poniżej progu alarmowego') ||
-      analysisText.includes('poniżej norm') // Obejmuje "poniżej normy", "poniżej norm." itp.
-    ) {
-      return { bg: 'rgba(239, 68, 68, 0.1)', arrow: '↓', color: 'var(--accent-red)' };
-    }
-
-    // Priorytet 2: Zielone tło dla wyników prawidłowych
-    if (
-      analysisText.includes('wartość pożądana') ||
-      analysisText.includes('w normie') ||
-      analysisText.includes('prawidłow') // Obejmuje "prawidłowy", "prawidłowa"
-    ) {
-      return { bg: 'rgba(16, 185, 129, 0.1)', arrow: null, color: 'var(--accent-green)' };
-    }
-
-    // Domyślnie, jeśli żaden warunek nie pasuje
-    return { bg: 'transparent', arrow: null, color: 'var(--text-secondary)' };
-  };
-
+  // Unikalne parametry
   const uniqueParams = [...new Set(parameters.map(p => p.parameter_name))];
 
   return (
@@ -131,234 +29,230 @@ function WykresWynikow({
         <div className="particle"></div>
       </div>
 
-      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem' }}>
         {/* Modern Page Header */}
         <div className="modern-page-header">
           <h1 className="modern-page-title">Podsumowanie badań</h1>
           <p className="modern-page-subtitle">
-            Analizuj swoje wyniki w czasie, porównuj parametry i śledź trendy zdrowotne
+            Analizuj trendy zdrowotne, porównuj parametry w czasie i otrzymaj inteligentne wnioski AI o Twoim stanie zdrowia
           </p>
         </div>
 
-        {/* Parameters Selection Card */}
-        <div className="modern-card">
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center',
-            marginBottom: '2rem',
-            paddingBottom: '1rem',
-            borderBottom: '1px solid var(--border-color)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <FaBrain style={{ color: 'var(--accent-blue)', fontSize: '1.5rem' }} />
-              <h3 style={{ color: 'var(--text-primary)', margin: 0 }}>
-                Wybierz parametry do analizy
-              </h3>
+        {/* Parameter Selection */}
+        {uniqueParams.length > 0 ? (
+          <>
+            <div className="modern-card" style={{ marginBottom: '2rem' }}>
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                marginBottom: '2rem',
+                paddingBottom: '1rem',
+                borderBottom: '1px solid var(--border-color)'
+              }}>
+                <div>
+                  <h3 style={{ 
+                    color: 'var(--text-primary)', 
+                    marginBottom: '0.5rem',
+                    fontSize: '1.5rem',
+                    fontWeight: '700',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem'
+                  }}>
+                    <FaChartLine style={{ color: 'var(--accent-blue)' }} />
+                    Wybierz parametry do analizy
+                  </h3>
+                  <p style={{ 
+                    color: 'var(--text-secondary)', 
+                    fontSize: '1rem',
+                    margin: 0
+                  }}>
+                    Wybierz które parametry chcesz analizować i porównywać w czasie
+                  </p>
+                </div>
+                
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                  <button
+                    onClick={handleSelectAll}
+                    className="modern-btn modern-btn-secondary modern-btn-small"
+                  >
+                    <FaCheckSquare />
+                    Zaznacz wszystkie
+                  </button>
+                  <button
+                    onClick={handleDeselectAll}
+                    className="modern-btn modern-btn-secondary modern-btn-small"
+                  >
+                    <FaSquare />
+                    Odznacz wszystkie
+                  </button>
+                </div>
+              </div>
+              
+              {/* Enhanced Parameter Grid */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                gap: '1rem'
+              }}>
+                {uniqueParams.map(param => (
+                  <label
+                    key={param}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: '1rem',
+                      background: selectedParams.includes(param) 
+                        ? 'rgba(59, 130, 246, 0.15)' 
+                        : 'var(--bg-card)',
+                      border: selectedParams.includes(param) 
+                        ? '1px solid var(--accent-blue)' 
+                        : '1px solid var(--border-color)',
+                      borderRadius: '12px',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease',
+                      gap: '0.75rem'
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedParams.includes(param)}
+                      onChange={() => handleParamToggle(param)}
+                      style={{ 
+                        width: '18px', 
+                        height: '18px',
+                        accentColor: 'var(--accent-blue)',
+                        cursor: 'pointer'
+                      }}
+                    />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ 
+                        color: 'var(--text-primary)', 
+                        fontWeight: '600',
+                        fontSize: '0.9rem',
+                        marginBottom: '0.25rem'
+                      }}>
+                        {param}
+                      </div>
+                      <div style={{ 
+                        color: 'var(--text-muted)', 
+                        fontSize: '0.75rem'
+                      }}>
+                        {parameters.filter(p => p.parameter_name === param).length} pomiarów
+                      </div>
+                    </div>
+                    <div style={{
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      background: selectedParams.includes(param) 
+                        ? 'var(--accent-green)' 
+                        : 'var(--text-muted)'
+                    }} />
+                  </label>
+                ))}
+              </div>
+
+              {/* Generate Analysis Button */}
+              {selectedParams.length > 0 && (
+                <div style={{ marginTop: '2rem', textAlign: 'center' }}>
+                  <button
+                    onClick={handleSummarize}
+                    disabled={isAnalyzing}
+                    className="modern-btn"
+                    style={{ fontSize: '1rem', padding: '1rem 2rem' }}
+                  >
+                    {isAnalyzing ? (
+                      <div className="modern-loading">
+                        <div className="modern-spinner"></div>
+                        Generuję analizę AI...
+                      </div>
+                    ) : (
+                      <>
+                        <FaBrain />
+                        Wygeneruj analizę AI wybranych parametrów
+                      </>
+                    )}
+                  </button>
+                  
+                  <p style={{ 
+                    color: 'var(--text-muted)', 
+                    fontSize: '0.875rem',
+                    marginTop: '1rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem'
+                  }}>
+                    <FaInfoCircle />
+                    Wybrano {selectedParams.length} z {uniqueParams.length} parametrów
+                  </p>
+                </div>
+              )}
             </div>
-            
-            <div style={{ display: 'flex', gap: '1rem' }}>
-              <button
-                className="modern-btn modern-btn-secondary modern-btn-small"
-                onClick={handleSelectAll}
-              >
-                <FaCheckSquare />
-                Zaznacz wszystko
-              </button>
-              <button
-                className="modern-btn modern-btn-secondary modern-btn-small"
-                onClick={handleDeselectAll}
-              >
-                <FaSquare />
-                Odznacz wszystko
-              </button>
-            </div>
-          </div>
-          
-          <div style={{ 
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
-            gap: '1rem'
-          }}>
-            {uniqueParams.map(param => (
-              <label 
-                key={param} 
-                style={{
+
+            {/* Chart Display */}
+            {selectedParams.length > 0 && chartData.datasets.length > 0 && (
+              <div className="modern-card" style={{ marginBottom: '2rem' }}>
+                <h3 style={{ 
+                  color: 'var(--text-primary)', 
+                  marginBottom: '2rem',
+                  fontSize: '1.5rem',
+                  fontWeight: '700',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '0.75rem',
-                  padding: '1rem',
-                  background: selectedParams.includes(param) 
-                    ? 'rgba(59, 130, 246, 0.1)' 
-                    : 'var(--bg-glass)',
-                  border: selectedParams.includes(param)
-                    ? '1px solid var(--accent-blue)'
-                    : '1px solid var(--border-color)',
-                  borderRadius: '12px',
-                  cursor: 'pointer',
-                  transition: 'all 0.3s ease',
-                  backdropFilter: 'blur(10px)'
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedParams.includes(param)}
-                  onChange={() => handleParamToggle(param)}
-                  style={{ 
-                    width: '18px', 
-                    height: '18px',
-                    accentColor: 'var(--accent-blue)'
-                  }}
-                />
-                <span style={{ 
-                  color: selectedParams.includes(param) 
-                    ? 'var(--text-primary)' 
-                    : 'var(--text-secondary)',
-                  fontWeight: selectedParams.includes(param) ? '600' : '500'
+                  gap: '0.5rem'
                 }}>
-                  {param}
-                </span>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        {selectedParams.length > 0 && (
-          <>
-            {/* Results Table Card */}
-            <div className="modern-card" style={{ marginTop: '2rem' }}>
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '0.5rem',
-                marginBottom: '2rem'
-              }}>
-                <FaTable style={{ color: 'var(--accent-purple)', fontSize: '1.5rem' }} />
-                <h3 style={{ color: 'var(--text-primary)', margin: 0 }}>
-                  Tabela wyników
+                  <FaChartBar style={{ color: 'var(--accent-green)' }} />
+                  Wykres trendów parametrów
                 </h3>
-              </div>
-              
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{
-                  width: '100%',
-                  borderCollapse: 'collapse',
-                  minWidth: '600px',
-                  background: 'var(--bg-glass)',
-                  borderRadius: '12px',
-                  overflow: 'hidden'
-                }}>
-                  <thead>
-                    <tr style={{ background: 'rgba(103, 126, 234, 0.1)' }}>
-                      <th style={{
-                        padding: '1rem',
-                        textAlign: 'left',
-                        position: 'sticky',
-                        left: 0,
-                        background: 'rgba(103, 126, 234, 0.1)',
-                        zIndex: 1,
-                        border: '1px solid var(--border-color)',
-                        fontSize: '0.9rem',
-                        fontWeight: '600',
-                        color: 'var(--text-primary)'
-                      }}>
-                        Parametr
-                      </th>
-                      {uniqueDates.map(date => (
-                        <th
-                          key={date}
-                          style={{
-                            padding: '1rem',
-                            textAlign: 'center',
-                            minWidth: '140px',
-                            border: '1px solid var(--border-color)',
-                            fontSize: '0.9rem',
-                            fontWeight: '600',
-                            color: 'var(--text-primary)'
-                          }}
-                        >
-                          {date}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {Object.entries(groupedData).map(([param, { values, units, analysis }]) => (
-                      <tr key={param} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                        <td style={{
-                          padding: '1rem',
-                          position: 'sticky',
-                          left: 0,
-                          background: 'var(--bg-glass)',
-                          fontWeight: '600',
-                          border: '1px solid var(--border-color)',
-                          fontSize: '0.9rem',
-                          color: 'var(--text-primary)'
-                        }}>
-                          {param} {units && <span style={{ color: 'var(--text-muted)' }}>({units})</span>}
-                        </td>
-                        {uniqueDates.map(date => {
-                          const { bg, arrow, color } = getCellProps(analysis[date]);
-                          return (
-                            <td
-                              key={date}
-                              style={{
-                                padding: '1rem',
-                                textAlign: 'center',
-                                backgroundColor: bg,
-                                color: color || 'var(--text-primary)',
-                                fontWeight: '600',
-                                border: '1px solid var(--border-color)',
-                                fontSize: '0.9rem'
-                              }}
-                            >
-                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                                {values[date] || '-'}
-                                {arrow && <span style={{ fontSize: '1.2rem' }}>{arrow}</span>}
-                              </div>
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Chart Card */}
-            <div className="modern-card" style={{ marginTop: '2rem' }}>
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '0.5rem',
-                marginBottom: '2rem'
-              }}>
-                <FaChartLine style={{ color: 'var(--accent-green)', fontSize: '1.5rem' }} />
-                <h3 style={{ color: 'var(--text-primary)', margin: 0 }}>
-                  Wykres trendów
-                </h3>
-              </div>
-              
-              {chartData?.datasets?.length > 0 ? (
+                
                 <div style={{ 
                   height: '500px',
-                  background: 'var(--bg-glass)',
+                  background: 'var(--bg-card)',
                   borderRadius: '12px',
-                  padding: '1rem'
+                  padding: '2rem',
+                  border: '1px solid var(--border-color)'
                 }}>
-                  <Line
-                    data={chartData}
+                  <Line 
+                    data={chartData} 
                     options={{
                       responsive: true,
                       maintainAspectRatio: false,
+                      interaction: {
+                        intersect: false,
+                        mode: 'index'
+                      },
                       plugins: {
                         legend: {
                           labels: {
-                            color: 'var(--text-primary)',
+                            color: '#e4e4e7',
                             font: {
-                              family: 'Inter'
-                            }
+                              family: 'Inter',
+                              size: 12,
+                              weight: '500'
+                            },
+                            padding: 20,
+                            usePointStyle: true,
+                            pointStyle: 'circle'
+                          }
+                        },
+                        tooltip: {
+                          backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                          titleColor: '#ffffff',
+                          bodyColor: '#e4e4e7',
+                          borderColor: 'var(--border-color)',
+                          borderWidth: 1,
+                          cornerRadius: 8,
+                          titleFont: {
+                            family: 'Inter',
+                            size: 13,
+                            weight: '600'
+                          },
+                          bodyFont: {
+                            family: 'Inter',
+                            size: 12
                           }
                         }
                       },
@@ -366,106 +260,264 @@ function WykresWynikow({
                         x: {
                           type: 'time',
                           time: {
-                            unit: 'month',
-                            tooltipFormat: 'dd.MM.yyyy'
-                          },
-                          adapters: {
-                            date: {
-                              locale: pl
+                            unit: 'day',
+                            displayFormats: {
+                              day: 'dd.MM.yyyy'
                             }
                           },
-                          ticks: {
-                            color: 'var(--text-secondary)'
-                          },
                           grid: {
-                            color: 'rgba(255, 255, 255, 0.1)'
+                            color: 'rgba(255, 255, 255, 0.1)',
+                            drawBorder: false
+                          },
+                          ticks: {
+                            color: '#a1a1aa',
+                            font: {
+                              family: 'Inter',
+                              size: 11
+                            },
+                            maxTicksLimit: 8
                           }
                         },
                         y: {
-                          beginAtZero: true,
-                          ticks: {
-                            color: 'var(--text-secondary)'
-                          },
+                          beginAtZero: false,
                           grid: {
-                            color: 'rgba(255, 255, 255, 0.1)'
+                            color: 'rgba(255, 255, 255, 0.1)',
+                            drawBorder: false
+                          },
+                          ticks: {
+                            color: '#a1a1aa',
+                            font: {
+                              family: 'Inter',
+                              size: 11
+                            }
                           }
                         }
+                      },
+                      elements: {
+                        point: {
+                          radius: 4,
+                          hoverRadius: 6,
+                          borderWidth: 2,
+                          hitRadius: 8
+                        },
+                        line: {
+                          borderWidth: 3,
+                          tension: 0.2
+                        }
                       }
-                    }}
+                    }} 
                   />
                 </div>
-              ) : (
-                <div className="modern-empty-state">
-                  <FaChartLine className="modern-empty-icon" />
-                  <h3 className="modern-empty-title">Brak danych do wyświetlenia</h3>
-                  <p className="modern-empty-description">
-                    Wybierz parametry powyżej aby zobaczyć wykres trendów
-                  </p>
-                </div>
-              )}
-              
-              {!summary && (
-                <button
-                  className="modern-btn"
-                  onClick={handleSummarize}
-                  disabled={!parameters.length || isAnalyzing || selectedParams.length === 0}
-                  style={{ marginTop: '2rem', width: '100%' }}
-                >
-                  {isAnalyzing ? (
-                    <div className="modern-loading">
-                      <div className="modern-spinner"></div>
-                      Analizuję parametry...
-                    </div>
-                  ) : (
-                    <>
-                      <FaBrain />
-                      Wygeneruj szczegółową analizę AI
-                    </>
-                  )}
-                </button>
-              )}
-            </div>
+              </div>
+            )}
 
-            {/* AI Analysis Results */}
+            {/* Enhanced Data Table */}
+            {selectedParams.length > 0 && (
+              <div className="modern-card" style={{ marginBottom: '2rem' }}>
+                <h3 style={{ 
+                  color: 'var(--text-primary)', 
+                  marginBottom: '2rem',
+                  fontSize: '1.5rem',
+                  fontWeight: '700',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem'
+                }}>
+                  <FaTable style={{ color: 'var(--accent-purple)' }} />
+                  Tabela wyników
+                </h3>
+                
+                <div style={{ 
+                  overflowX: 'auto',
+                  borderRadius: '12px',
+                  border: '1px solid var(--border-color)'
+                }}>
+                  <table style={{
+                    width: '100%',
+                    borderCollapse: 'collapse',
+                    background: 'var(--bg-card)'
+                  }}>
+                    <thead>
+                      <tr style={{ background: 'var(--bg-glass)' }}>
+                        <th style={{
+                          padding: '1rem',
+                          textAlign: 'left',
+                          color: 'var(--text-primary)',
+                          fontWeight: '600',
+                          fontSize: '0.875rem',
+                          borderBottom: '1px solid var(--border-color)'
+                        }}>
+                          <FaCalendarAlt style={{ marginRight: '0.5rem', color: 'var(--accent-blue)' }} />
+                          Data
+                        </th>
+                        <th style={{
+                          padding: '1rem',
+                          textAlign: 'left',
+                          color: 'var(--text-primary)',
+                          fontWeight: '600',
+                          fontSize: '0.875rem',
+                          borderBottom: '1px solid var(--border-color)'
+                        }}>
+                          Parametr
+                        </th>
+                        <th style={{
+                          padding: '1rem',
+                          textAlign: 'left',
+                          color: 'var(--text-primary)',
+                          fontWeight: '600',
+                          fontSize: '0.875rem',
+                          borderBottom: '1px solid var(--border-color)'
+                        }}>
+                          Wartość
+                        </th>
+                        <th style={{
+                          padding: '1rem',
+                          textAlign: 'left',
+                          color: 'var(--text-primary)',
+                          fontWeight: '600',
+                          fontSize: '0.875rem',
+                          borderBottom: '1px solid var(--border-color)'
+                        }}>
+                          Komentarz
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {parameters
+                        .filter(param => selectedParams.includes(param.parameter_name))
+                        .sort((a, b) => new Date(b.measurement_date) - new Date(a.measurement_date))
+                        .map((param, index) => (
+                          <tr key={index} style={{
+                            borderBottom: '1px solid var(--border-color)',
+                            transition: 'background-color 0.2s ease'
+                          }}>
+                            <td style={{ 
+                              padding: '1rem', 
+                              color: 'var(--text-secondary)',
+                              fontSize: '0.875rem'
+                            }}>
+                              {new Date(param.measurement_date).toLocaleDateString('pl-PL')}
+                            </td>
+                            <td style={{ 
+                              padding: '1rem', 
+                              color: 'var(--text-primary)',
+                              fontWeight: '500',
+                              fontSize: '0.875rem'
+                            }}>
+                              {param.parameter_name}
+                            </td>
+                            <td style={{ 
+                              padding: '1rem', 
+                              color: 'var(--text-primary)',
+                              fontWeight: '600',
+                              fontSize: '0.875rem'
+                            }}>
+                              {param.parameter_value}
+                            </td>
+                            <td style={{ 
+                              padding: '1rem', 
+                              color: 'var(--text-secondary)',
+                              fontSize: '0.875rem',
+                              lineHeight: '1.4'
+                            }}>
+                              {param.parameter_comment || 'Brak dodatkowych informacji'}
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Enhanced AI Analysis Results */}
             {summary && (
-              <div className="modern-card" style={{ marginTop: '2rem' }}>
+              <div className="modern-card">
                 <div style={{ 
                   display: 'flex', 
                   alignItems: 'center', 
-                  gap: '0.5rem',
+                  gap: '1rem',
                   marginBottom: '2rem',
                   paddingBottom: '1rem',
                   borderBottom: '1px solid var(--border-color)'
                 }}>
-                  <FaBrain style={{ color: 'var(--accent-pink)', fontSize: '1.5rem' }} />
-                  <h3 style={{ color: 'var(--text-primary)', margin: 0 }}>
-                    Analiza AI Twoich wyników
-                  </h3>
+                  <div style={{
+                    width: '60px',
+                    height: '60px',
+                    background: 'var(--primary-gradient)',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1.5rem',
+                    color: 'white',
+                    boxShadow: 'var(--shadow-lg)'
+                  }}>
+                    <FaBrain />
+                  </div>
+                  <div>
+                    <h3 style={{ 
+                      color: 'var(--text-primary)', 
+                      marginBottom: '0.5rem',
+                      fontSize: '1.5rem',
+                      fontWeight: '700'
+                    }}>
+                      Analiza AI Twoich wyników
+                    </h3>
+                    <p style={{ 
+                      color: 'var(--text-secondary)', 
+                      fontSize: '1rem',
+                      margin: 0
+                    }}>
+                      Inteligentna interpretacja Twoich parametrów zdrowotnych w kontekście trendów czasowych
+                    </p>
+                  </div>
                 </div>
                 
                 <div 
                   className="modern-analysis-content"
                   dangerouslySetInnerHTML={{ __html: summary }}
                   style={{
-                    background: 'var(--bg-glass)',
+                    background: 'var(--bg-card)',
                     borderRadius: '12px',
-                    padding: '2rem'
+                    padding: '2rem',
+                    border: '1px solid var(--border-color)',
+                    lineHeight: '1.6'
                   }}
                 />
               </div>
             )}
           </>
-        )}
-
-        {/* Empty state when no parameters */}
-        {uniqueParams.length === 0 && (
+        ) : (
+          // Enhanced Empty State
           <div className="modern-card">
             <div className="modern-empty-state">
               <FaChartLine className="modern-empty-icon" />
-              <h3 className="modern-empty-title">Brak parametrów do analizy</h3>
+              <h3 className="modern-empty-title">Brak danych do analizy</h3>
               <p className="modern-empty-description">
-                Aby wyświetlić wykresy i analizy, najpierw prześlij i przeanalizuj swoje wyniki badań.
+                Aby zobaczyć wykresy i analizy, musisz najpierw przesłać wyniki badań i przeanalizować je za pomocą AI. 
+                Przejdź do sekcji "Wgraj nowy plik" i prześlij swoje pierwsze badanie.
               </p>
+              
+              <div style={{
+                marginTop: '2rem',
+                padding: '1.5rem',
+                background: 'rgba(59, 130, 246, 0.15)',
+                border: '1px solid rgba(59, 130, 246, 0.3)',
+                borderRadius: '12px',
+                color: '#93c5fd',
+                fontSize: '0.875rem',
+                lineHeight: '1.6'
+              }}>
+                <FaInfoCircle style={{ fontSize: '1.5rem', marginBottom: '1rem', display: 'block', margin: '0 auto 1rem' }} />
+                <strong>Jak zacząć:</strong>
+                <ol style={{ textAlign: 'left', marginTop: '1rem', paddingLeft: '1.5rem' }}>
+                  <li style={{ marginBottom: '0.5rem' }}>Przejdź do sekcji "Wgraj nowy plik"</li>
+                  <li style={{ marginBottom: '0.5rem' }}>Prześlij PDF z wynikami badań</li>
+                  <li style={{ marginBottom: '0.5rem' }}>Przeanalizuj plik za pomocą AI</li>
+                  <li>Wróć tutaj, aby zobaczyć wykresy i trendy</li>
+                </ol>
+              </div>
             </div>
           </div>
         )}

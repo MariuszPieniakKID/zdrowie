@@ -1,5 +1,5 @@
 import React from 'react';
-import { FaUpload, FaFilePdf, FaMicrophone, FaPrescriptionBottleAlt, FaHeartbeat, FaCloudUploadAlt } from 'react-icons/fa';
+import { FaUpload, FaFilePdf, FaMicrophone, FaPrescriptionBottleAlt, FaHeartbeat, FaCloudUploadAlt, FaShieldAlt, FaCheckCircle, FaInfoCircle, FaFileImage } from 'react-icons/fa';
 import './components.css';
 
 /**
@@ -15,9 +15,7 @@ function WgrajPlik({
   setChronicDiseases,
   medications,
   setMedications,
-  loading,
-  styles,
-  responsiveStyles
+  loading
 }) {
   return (
     <div className="modern-container">
@@ -28,13 +26,13 @@ function WgrajPlik({
         <div className="particle"></div>
       </div>
 
-      <div style={{ maxWidth: '800px', margin: '0 auto', padding: '2rem' }}>
+      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '2rem' }}>
         {/* Modern Page Header */}
         <div className="modern-page-header">
-          <h1 className="modern-page-title">Wgraj nowy plik</h1>
+          <h1 className="modern-page-title">Wgraj nowe badanie</h1>
           <p className="modern-page-subtitle">
             Prześlij swoje wyniki badań w formacie PDF. Nasza AI automatycznie przeanalizuje dokument 
-            i dostarczy szczegółową interpretację wyników.
+            i dostarczy szczegółową interpretację wyników medycznych.
           </p>
         </div>
 
@@ -52,7 +50,7 @@ function WgrajPlik({
                 <input
                   id="file-upload"
                   type="file"
-                  accept=".pdf"
+                  accept=".pdf,.jpg,.jpeg,.png"
                   onChange={(e) => setSelectedFile(e.target.files[0])}
                   style={{ display: 'none' }}
                 />
@@ -62,29 +60,39 @@ function WgrajPlik({
                 <div className="modern-upload-text">
                   {selectedFile ? (
                     <>
-                      <strong>{selectedFile.name}</strong>
+                      <strong style={{ color: 'var(--text-primary)' }}>{selectedFile.name}</strong>
                       <div className="modern-upload-subtext">
+                        <FaCheckCircle style={{ marginRight: '0.25rem', color: 'var(--accent-green)' }} />
                         Rozmiar: {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
                       </div>
                     </>
                   ) : (
-                    'Kliknij, aby wybrać plik PDF lub przeciągnij go tutaj'
+                    <span style={{ color: 'var(--text-secondary)' }}>
+                      Kliknij, aby wybrać plik lub przeciągnij go tutaj
+                    </span>
                   )}
                 </div>
                 
                 {!selectedFile && (
                   <div className="modern-upload-subtext">
-                    Obsługujemy pliki PDF do 10 MB
+                    <FaInfoCircle style={{ marginRight: '0.25rem', color: 'var(--accent-blue)' }} />
+                    Obsługujemy pliki PDF i obrazy (JPG, PNG) do 10 MB
                   </div>
                 )}
               </label>
             </div>
 
             {/* Additional Information Section */}
-            <div className="modern-card modern-card-small" style={{ marginTop: '2rem' }}>
+            <div className="modern-card modern-card-small" style={{ 
+              marginTop: '2rem',
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border-color)'
+            }}>
               <h3 style={{ 
                 color: 'var(--text-primary)', 
                 marginBottom: '1.5rem',
+                fontSize: '1.25rem',
+                fontWeight: '700',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.5rem'
@@ -97,10 +105,15 @@ function WgrajPlik({
                 color: 'var(--text-secondary)', 
                 marginBottom: '2rem',
                 fontSize: '0.9rem',
-                lineHeight: '1.6'
+                lineHeight: '1.6',
+                padding: '1rem',
+                background: 'var(--bg-glass)',
+                borderRadius: '8px',
+                border: '1px solid var(--border-light)'
               }}>
+                <FaInfoCircle style={{ marginRight: '0.5rem', color: 'var(--accent-blue)' }} />
                 Podaj dodatkowe informacje, które pomogą AI w dokładniejszej analizie Twoich wyników.
-                Wszystkie pola są opcjonalne.
+                Wszystkie pola są opcjonalne, ale każda informacja poprawia jakość analizy.
               </p>
 
               <div className="modern-form-group">
@@ -112,7 +125,7 @@ function WgrajPlik({
                   value={symptoms}
                   onChange={(e) => setSymptoms(e.target.value)}
                   className="modern-textarea"
-                  placeholder="Opisz objawy, które odczuwasz... np. zmęczenie, bóle głowy, problemy trawienne"
+                  placeholder="Opisz objawy, które odczuwasz... np. zmęczenie, bóle głowy, problemy trawienne, zawroty głowy"
                   rows="4"
                 />
               </div>
@@ -126,7 +139,7 @@ function WgrajPlik({
                   value={chronicDiseases}
                   onChange={(e) => setChronicDiseases(e.target.value)}
                   className="modern-textarea"
-                  placeholder="Wymień choroby przewlekłe... np. cukrzyca, nadciśnienie, choroby tarczycy"
+                  placeholder="Wymień choroby przewlekłe... np. cukrzyca, nadciśnienie, choroby tarczycy, astma"
                   rows="3"
                 />
               </div>
@@ -134,13 +147,13 @@ function WgrajPlik({
               <div className="modern-form-group">
                 <label className="modern-label">
                   <FaPrescriptionBottleAlt style={{ marginRight: '0.5rem', color: 'var(--accent-green)' }} />
-                  Przyjmowane leki
+                  Przyjmowane leki i suplementy
                 </label>
                 <textarea
                   value={medications}
                   onChange={(e) => setMedications(e.target.value)}
                   className="modern-textarea"
-                  placeholder="Wymień leki, które obecnie przyjmujesz... np. metformina, euthyrox, witaminy"
+                  placeholder="Wymień leki i suplementy... np. metformina, euthyrox, witaminy, omega-3"
                   rows="3"
                 />
               </div>
@@ -169,73 +182,124 @@ function WgrajPlik({
             {!selectedFile && (
               <div style={{
                 textAlign: 'center',
-                marginTop: '1rem',
-                padding: '1rem',
-                background: 'rgba(59, 130, 246, 0.1)',
+                marginTop: '1.5rem',
+                padding: '1.5rem',
+                background: 'rgba(59, 130, 246, 0.15)',
                 border: '1px solid rgba(59, 130, 246, 0.3)',
                 borderRadius: '12px',
-                color: 'var(--accent-blue)',
-                fontSize: '0.875rem'
+                color: '#93c5fd',
+                fontSize: '0.875rem',
+                lineHeight: '1.5'
               }}>
-                💡 <strong>Wskazówka:</strong> Przed przesłaniem upewnij się, że plik PDF zawiera czytelne wyniki badań laboratoryjnych
+                <FaInfoCircle style={{ fontSize: '1.5rem', marginBottom: '0.5rem', display: 'block', margin: '0 auto 0.5rem' }} />
+                <strong>Wskazówka:</strong> Przed przesłaniem upewnij się, że plik PDF lub obraz zawiera czytelne wyniki badań laboratoryjnych.
+                Najlepiej działają dokumenty z tabelami parametrów i wartości.
               </div>
             )}
           </form>
         </div>
 
-        {/* Info Cards */}
+        {/* Enhanced Info Cards */}
         <div style={{ 
           display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
-          gap: '1.5rem',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', 
+          gap: '2rem',
           marginTop: '3rem'
         }}>
           <div className="modern-card modern-card-small">
             <h4 style={{ 
               color: 'var(--text-primary)', 
-              marginBottom: '1rem',
+              marginBottom: '1.5rem',
+              fontSize: '1.1rem',
+              fontWeight: '600',
               display: 'flex',
               alignItems: 'center',
               gap: '0.5rem'
             }}>
-              <FaFilePdf style={{ color: 'var(--accent-red)' }} />
+              <FaFileImage style={{ color: 'var(--accent-blue)' }} />
               Obsługiwane formaty
             </h4>
-            <ul style={{ 
-              color: 'var(--text-secondary)', 
-              lineHeight: '1.6',
-              listStyle: 'none',
-              padding: 0
-            }}>
-              <li>✓ Pliki PDF do 10 MB</li>
-              <li>✓ Wyniki laboratoriów medycznych</li>
-              <li>✓ Dokumenty z tekstem i tabelami</li>
-              <li>✓ Skany wyników badań</li>
-            </ul>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{
+                padding: '1rem',
+                background: 'var(--bg-glass)',
+                borderRadius: '8px',
+                border: '1px solid var(--border-light)'
+              }}>
+                <ul style={{ 
+                  color: 'var(--text-secondary)', 
+                  lineHeight: '1.6',
+                  listStyle: 'none',
+                  padding: 0,
+                  margin: 0
+                }}>
+                  <li style={{ marginBottom: '0.5rem' }}>
+                    <FaCheckCircle style={{ color: 'var(--accent-green)', marginRight: '0.5rem' }} />
+                    Pliki PDF do 10 MB
+                  </li>
+                  <li style={{ marginBottom: '0.5rem' }}>
+                    <FaCheckCircle style={{ color: 'var(--accent-green)', marginRight: '0.5rem' }} />
+                    Obrazy JPG, PNG
+                  </li>
+                  <li style={{ marginBottom: '0.5rem' }}>
+                    <FaCheckCircle style={{ color: 'var(--accent-green)', marginRight: '0.5rem' }} />
+                    Wyniki laboratoriów medycznych
+                  </li>
+                  <li>
+                    <FaCheckCircle style={{ color: 'var(--accent-green)', marginRight: '0.5rem' }} />
+                    Skany i zdjęcia wyników
+                  </li>
+                </ul>
+              </div>
+            </div>
           </div>
 
           <div className="modern-card modern-card-small">
             <h4 style={{ 
               color: 'var(--text-primary)', 
-              marginBottom: '1rem',
+              marginBottom: '1.5rem',
+              fontSize: '1.1rem',
+              fontWeight: '600',
               display: 'flex',
               alignItems: 'center',
               gap: '0.5rem'
             }}>
-              <FaHeartbeat style={{ color: 'var(--accent-pink)' }} />
-              Bezpieczeństwo danych
+              <FaShieldAlt style={{ color: 'var(--accent-green)' }} />
+              Bezpieczeństwo i prywatność
             </h4>
-            <ul style={{ 
-              color: 'var(--text-secondary)', 
-              lineHeight: '1.6',
-              listStyle: 'none',
-              padding: 0
-            }}>
-              <li>✓ Szyfrowanie end-to-end</li>
-              <li>✓ Zgodność z RODO</li>
-              <li>✓ Bezpieczne przechowywanie</li>
-              <li>✓ Możliwość usunięcia danych</li>
-            </ul>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{
+                padding: '1rem',
+                background: 'var(--bg-glass)',
+                borderRadius: '8px',
+                border: '1px solid var(--border-light)'
+              }}>
+                <ul style={{ 
+                  color: 'var(--text-secondary)', 
+                  lineHeight: '1.6',
+                  listStyle: 'none',
+                  padding: 0,
+                  margin: 0
+                }}>
+                  <li style={{ marginBottom: '0.5rem' }}>
+                    <FaCheckCircle style={{ color: 'var(--accent-green)', marginRight: '0.5rem' }} />
+                    Szyfrowanie end-to-end
+                  </li>
+                  <li style={{ marginBottom: '0.5rem' }}>
+                    <FaCheckCircle style={{ color: 'var(--accent-green)', marginRight: '0.5rem' }} />
+                    Zgodność z RODO
+                  </li>
+                  <li style={{ marginBottom: '0.5rem' }}>
+                    <FaCheckCircle style={{ color: 'var(--accent-green)', marginRight: '0.5rem' }} />
+                    Bezpieczne przechowywanie
+                  </li>
+                  <li>
+                    <FaCheckCircle style={{ color: 'var(--accent-green)', marginRight: '0.5rem' }} />
+                    Możliwość usunięcia danych
+                  </li>
+                </ul>
+              </div>
+            </div>
           </div>
         </div>
       </div>

@@ -1,7 +1,7 @@
-/* Modern Components Styles for MedAnalyzer */
+/* Modern Components Styles for MedAnalyzer - Fixed Color Scheme */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
-/* CSS Variables */
+/* CSS Variables - Updated to match landing page */
 :root {
   /* Primary colors */
   --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -10,17 +10,18 @@
   --warning-gradient: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
   --danger-gradient: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
   
-  /* Dark theme colors */
+  /* Dark theme colors - Updated for better contrast */
   --bg-primary: #0a0a0b;
   --bg-secondary: #151516;
   --bg-tertiary: #1f1f21;
-  --bg-card: rgba(255, 255, 255, 0.05);
-  --bg-glass: rgba(255, 255, 255, 0.1);
+  --bg-card: rgba(255, 255, 255, 0.08);
+  --bg-glass: rgba(255, 255, 255, 0.12);
   
-  /* Text colors */
+  /* Text colors - Fixed for better visibility */
   --text-primary: #ffffff;
-  --text-secondary: #a1a1aa;
-  --text-muted: #71717a;
+  --text-secondary: #e4e4e7;
+  --text-muted: #a1a1aa;
+  --text-light: #d4d4d8;
   
   /* Accent colors */
   --accent-blue: #3b82f6;
@@ -31,12 +32,13 @@
   --accent-red: #ef4444;
   
   /* Borders and shadows */
-  --border-color: rgba(255, 255, 255, 0.1);
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-  --shadow-glow: 0 0 40px rgba(103, 126, 234, 0.3);
+  --border-color: rgba(255, 255, 255, 0.15);
+  --border-light: rgba(255, 255, 255, 0.1);
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.15);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.25);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+  --shadow-glow: 0 0 40px rgba(103, 126, 234, 0.4);
   
   /* Spacing */
   --container-padding: 2rem;
@@ -62,6 +64,7 @@
   height: 100%;
   background: radial-gradient(ellipse at center, rgba(103, 126, 234, 0.1) 0%, transparent 70%);
   z-index: -1;
+  pointer-events: none;
 }
 
 /* Animated Background Elements */
@@ -168,6 +171,7 @@
   transform: translateY(-5px);
   box-shadow: var(--shadow-xl);
   border-color: var(--accent-blue);
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .modern-card-small {
@@ -195,11 +199,13 @@
   color: var(--text-primary);
   font-size: 0.875rem;
   letter-spacing: 0.025em;
+  display: flex;
+  align-items: center;
 }
 
 .modern-input,
 .modern-textarea {
-  background: var(--bg-glass);
+  background: var(--bg-card);
   backdrop-filter: blur(10px);
   border: 1px solid var(--border-color);
   border-radius: 12px;
@@ -214,7 +220,7 @@
 .modern-textarea:focus {
   outline: none;
   border-color: var(--accent-blue);
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.18);
   box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
 }
 
@@ -286,7 +292,7 @@
 }
 
 .modern-btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.18);
   border-color: var(--accent-blue);
 }
 
@@ -337,7 +343,7 @@
 
 .modern-upload-area:hover {
   border-color: var(--accent-blue);
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .modern-upload-area:hover::before {
@@ -395,6 +401,7 @@
   transform: translateX(5px);
   border-color: var(--accent-blue);
   box-shadow: var(--shadow-md);
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .modern-file-header {
@@ -440,6 +447,7 @@
   background: var(--bg-glass);
   padding: 0.5rem 1rem;
   border-radius: 20px;
+  border: 1px solid var(--border-light);
 }
 
 /* Modal */
@@ -449,7 +457,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.8);
   backdrop-filter: blur(5px);
   display: flex;
   align-items: center;
@@ -529,18 +537,29 @@
   background: var(--bg-glass);
   border-radius: 12px;
   overflow: hidden;
+  border: 1px solid var(--border-color);
 }
 
 .modern-analysis-content th,
 .modern-analysis-content td {
   padding: 1rem;
   text-align: left;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-light);
+  color: var(--text-primary);
 }
 
 .modern-analysis-content th {
-  background: rgba(103, 126, 234, 0.1);
+  background: rgba(103, 126, 234, 0.15);
   font-weight: 600;
+  color: var(--text-primary);
+}
+
+.modern-analysis-content p {
+  color: var(--text-secondary);
+  margin-bottom: 1rem;
+}
+
+.modern-analysis-content strong {
   color: var(--text-primary);
 }
 
@@ -564,7 +583,7 @@
 }
 
 .modern-danger-description {
-  color: var(--text-muted);
+  color: var(--text-light);
   font-size: 0.875rem;
   margin-top: 1rem;
   line-height: 1.5;
@@ -575,6 +594,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  color: inherit;
 }
 
 .modern-spinner {
@@ -592,9 +612,9 @@
 
 /* Error Messages */
 .modern-error {
-  background: rgba(239, 68, 68, 0.1);
+  background: rgba(239, 68, 68, 0.15);
   border: 1px solid rgba(239, 68, 68, 0.3);
-  color: var(--accent-red);
+  color: #fca5a5;
   padding: 1rem 1.5rem;
   border-radius: 12px;
   margin: 1rem 0;
@@ -603,9 +623,9 @@
 
 /* Success Messages */
 .modern-success {
-  background: rgba(16, 185, 129, 0.1);
+  background: rgba(16, 185, 129, 0.15);
   border: 1px solid rgba(16, 185, 129, 0.3);
-  color: var(--accent-green);
+  color: #6ee7b7;
   padding: 1rem 1.5rem;
   border-radius: 12px;
   margin: 1rem 0;
@@ -623,6 +643,7 @@
   font-size: 4rem;
   margin-bottom: 1rem;
   opacity: 0.5;
+  color: var(--text-muted);
 }
 
 .modern-empty-title {
@@ -635,6 +656,7 @@
 .modern-empty-description {
   font-size: 1rem;
   line-height: 1.6;
+  color: var(--text-muted);
 }
 
 /* Responsive Design */
