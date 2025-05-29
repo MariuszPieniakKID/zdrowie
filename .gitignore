@@ -45,3 +45,10 @@ yarn-error.log*
 # Local uploads
 /backend/uploads
 /tmp
+
+# Tesseract language data files
+*.traineddata
+
+# Temporary files
+/backend/tmp/
+/backend/converted/
