@@ -1,0 +1,32 @@
+{
+  "name": "badania-backend",
+  "version": "1.0.0",
+  "description": "Backend for medical reports analysis app",
+  "main": "api/index.js",
+  "scripts": {
+    "start": "node api/index.js",
+    "dev": "nodemon api/index.js",
+    "build": "echo 'No build step required'",
+    "vercel-build": "echo 'Vercel build step'"
+  },
+  "dependencies": {
+    "@google-cloud/storage": "^7.16.0",
+    "@google-cloud/vision": "^5.1.0",
+    "cheerio": "^1.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.0",
+    "express": "^4.18.0",
+    "multer": "^2.0.0",
+    "node-fetch": "^2.6.7",
+    "openai": "^4.100.0",
+    "pdf-parse": "^1.1.1",
+    "pg": "^8.16.0",
+    "tesseract.js": "^5.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+} 

@@ -1,71 +1,268 @@
-# Getting Started with Create React App
+# Badania - Medical Reports Analysis App
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Aplikacja do analizy wyników badań medycznych z wykorzystaniem AI.
 
-## Available Scripts
+## 🏗️ Architektura
 
-In the project directory, you can run:
+- **Frontend**: React.js
+- **Backend**: Node.js/Express.js 
+- **Baza danych**: PostgreSQL (Neon.tech dla produkcji, lokalna dla developmentu)
+- **AI**: OpenAI GPT-4
+- **Cloud**: Google Cloud Platform (Vision API, Storage)
+- **Hosting**: Vercel
 
-### `npm start`
+## 🚀 Szybki start
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+### Wymagania
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+- Node.js 18+ 
+- npm lub yarn
+- PostgreSQL (lokalnie zainstalowany)
+- Konto na Neon.tech (PostgreSQL) - tylko dla produkcji
+- Klucz API OpenAI - opcjonalnie
+- Konfiguracja Google Cloud Platform - opcjonalnie
 
-### `npm test`
+### Instalacja (development lokalny)
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+1. **Sklonuj repozytorium**
+```bash
+git clone <your-repo-url>
+cd badania
+```
 
-### `npm run build`
+2. **Zainstaluj zależności**
+```bash
+npm install
+```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+3. **Skonfiguruj lokalną bazę danych PostgreSQL**
+```bash
+# Utwórz bazę danych i tabele
+createdb badania_local
+psql -d badania_local -f database_setup.sql
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+# Lub użyj skryptu
+./scripts/db_reset.sh
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+4. **Skonfiguruj zmienne środowiskowe**
+```bash
+cd backend
+cp env.example .env
+```
 
-### `npm run eject`
+Edytuj plik `.env` w katalogu `backend/`. **Dla lokalnego developmentu wystarczy:**
+```env
+# Lokalna baza danych (wymagane)
+DATABASE_URL=postgresql://your_username@localhost:5432/badania_local?sslmode=disable
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+# Opcjonalne (możesz dodać później)
+OPENAI_API_KEY=your_openai_api_key
+GCP_PROJECT_ID=your_gcp_project_id
+GCP_SERVICE_ACCOUNT_EMAIL=your_service_account@project.iam.gserviceaccount.com
+GCP_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nyour_key\n-----END PRIVATE KEY-----"
+GCS_BUCKET_NAME=your_bucket_name
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+# Konfiguracja serwera
+PORT=3001
+NODE_ENV=development
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+5. **Uruchom aplikację lokalnie**
+```bash
+npm run dev
+```
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+To uruchomi:
+- Frontend na `http://localhost:3000`
+- Backend na `http://localhost:3001`
 
-## Learn More
+### Alternatywnie - uruchom części osobno
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+**Tylko frontend:**
+```bash
+npm start
+```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+**Tylko backend:**
+```bash
+npm run server
+```
 
-### Code Splitting
+## 🗄️ Zarządzanie lokalną bazą danych
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+### Resetowanie bazy danych
+```bash
+./scripts/db_reset.sh
+```
 
-### Analyzing the Bundle Size
+### Ręczne operacje
+```bash
+# Połącz się z bazą
+psql -d badania_local
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+# Sprawdź tabele
+\dt
 
-### Making a Progressive Web App
+# Sprawdź użytkowników
+SELECT * FROM users;
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+# Sprawdź parametry
+SELECT * FROM parameters;
+```
 
-### Advanced Configuration
+### Przykładowi użytkownicy (automatycznie dodani)
+- **Jan Kowalski**: telefon `123456789`
+- **Anna Nowak**: telefon `987654321`
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+## 🔄 Workflow developmentu
 
-### Deployment
+### 1. Rozwój lokalny
+```bash
+# Pobierz najnowsze zmiany
+git pull origin main
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+# Zainstaluj zależności (jeśli były zmiany)
+npm install
 
-### `npm run build` fails to minify
+# Uruchom dev environment
+npm run dev
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
-# zdrowie
+# Wprowadź zmiany...
+# Testuj lokalnie...
+```
+
+### 2. Wdrażanie na produkcję
+```bash
+# Zatwierdź zmiany
+git add .
+git commit -m "Opis zmian"
+git push origin main
+```
+
+**Vercel automatycznie wykryje zmiany i wdroży aplikację!**
+
+## 📁 Struktura projektu
+
+```
+badania/
+├── src/                    # Frontend React
+├── public/                 # Pliki statyczne frontend
+├── backend/               
+│   ├── api/
+│   │   └── index.js       # Główny plik backendu
+│   ├── package.json       # Zależności backendu  
+│   ├── vercel.json        # Konfiguracja Vercel
+│   └── env.example        # Przykład zmiennych środowiskowych
+├── scripts/
+│   └── db_reset.sh        # Skrypt resetowania bazy
+├── database_setup.sql     # Schema bazy danych
+├── package.json           # Zależności frontend + skrypty
+└── README.md
+```
+
+## 🔧 Dostępne skrypty
+
+```bash
+npm start          # Uruchom tylko frontend (dev)
+npm run build      # Zbuduj frontend do produkcji
+npm run server     # Uruchom tylko backend (dev)
+npm run dev        # Uruchom frontend + backend (dev)
+npm install        # Zainstaluj zależności (frontend + backend)
+
+# Zarządzanie bazą danych
+./scripts/db_reset.sh  # Resetuj lokalną bazę danych
+```
+
+## 🚀 Vercel Deployment
+
+Aplikacja jest automatycznie wdrażana na Vercel po każdym push do głównej gałęzi.
+
+### Konfiguracja Vercel:
+
+1. **Frontend**: Automatycznie wykrywany jako React app
+2. **Backend**: Konfiguracja w `backend/vercel.json`
+3. **Zmienne środowiskowe**: Skonfigurowane w panelu Vercel
+
+### Zmienne środowiskowe w Vercel:
+
+Dodaj w panelu Vercel (Settings → Environment Variables):
+- `DATABASE_URL` (Neon.tech connection string)
+- `OPENAI_API_KEY`  
+- `GCP_PROJECT_ID`
+- `GCP_SERVICE_ACCOUNT_EMAIL`
+- `GCP_PRIVATE_KEY`
+- `GCS_BUCKET_NAME`
+
+## 🛠️ Funkcjonalności
+
+- ✅ Rejestracja i logowanie użytkowników
+- ✅ Upload i analiza plików PDF z wynikami badań
+- ✅ **Inteligentny OCR** - automatyczny wybór najlepszej metody:
+  - 📄 **pdf-parse** - szybkie dla tekstowych PDF-ów
+  - 🔍 **tesseract.js** - lokalny OCR dla zeskanowanych PDF-ów
+  - 🌥️ **Google Cloud OCR** - backup (opcjonalny)
+- ✅ Analiza AI z pamięcią kontekstu (GPT-4)
+- ✅ Przechowywanie parametrów zdrowotnych
+- ✅ Wizualizacja danych (wykresy)
+- ✅ Integracja z MedlinePlus
+- ✅ Responsywny design
+- ✅ Lokalna baza danych dla developmentu
+
+## 🔒 Bezpieczeństwo
+
+- Sanityzacja danych wejściowych
+- Bezpieczne przechowywanie plików
+- Szyfrowane połączenie z bazą danych (produkcja)
+- Walidacja po stronie serwera
+
+## 🐛 Troubleshooting
+
+### Problem z połączeniem do lokalnej bazy danych
+```bash
+# Sprawdź czy PostgreSQL działa
+brew services list | grep postgresql
+
+# Uruchom PostgreSQL jeśli nie działa
+brew services start postgresql@14
+
+# Sprawdź czy baza istnieje
+psql -l | grep badania_local
+
+# Utwórz bazę jeśli nie istnieje
+./scripts/db_reset.sh
+```
+
+### Backend nie uruchamia się
+1. Sprawdź czy plik `.env` istnieje w katalogu `backend/`
+2. Sprawdź czy `DATABASE_URL` jest poprawny
+3. Sprawdź logi w terminalu
+
+### Frontend nie łączy się z backendem
+1. Sprawdź czy backend działa na porcie 3001
+2. Sprawdź konfigurację CORS w `backend/api/index.js`
+
+### Problem z analizą PDF-ów
+**Aplikacja automatycznie wybierze najlepszą metodę OCR:**
+
+1. **pdf-parse** - dla PDF-ów z tekstem (najszybsza)
+2. **tesseract.js** - lokalny OCR dla zeskanowanych PDF-ów
+3. **Google Cloud OCR** - backup jeśli skonfigurowany
+
+**Jeśli wszystkie metody zawiodą:**
+- Sprawdź czy PDF zawiera czytelny tekst
+- Sprawdź jakość skanu (dla tesseract.js)
+- Sprawdź logi backendu
+
+### Problem z OpenAI/Google Cloud
+- **OpenAI** jest wymagany do analizy AI
+- **Google Cloud** jest opcjonalny - używany tylko jako backup OCR
+- Aplikacja będzie działać z lokalnym OCR bez Google Cloud
+
+## 📞 Support
+
+W przypadku problemów:
+1. Sprawdź logi w konsoli przeglądarki
+2. Sprawdź logi backendu w terminalu
+3. Sprawdź czy wszystkie wymagane zmienne środowiskowe są ustawione
+4. Sprawdź czy lokalna baza danych działa

@@ -9,31 +9,74 @@ const path = require('path');
 const fs = require('fs');
 const { OpenAI } = require('openai');
 const cheerio = require('cheerio');
-const fetch = require('node-fetch'); // nowość
+const fetch = require('node-fetch');
+const pdfParse = require('pdf-parse');
+const Tesseract = require('tesseract.js');
 
 const app = express();
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// Sprawdzenie zmiennych środowiskowych
+const requiredEnvVars = [
+  'DATABASE_URL',
+  'OPENAI_API_KEY'
+];
 
-const visionClient = new vision.ImageAnnotatorClient({
+// GCP jest teraz opcjonalne
+const optionalEnvVars = [
+  'GCP_PROJECT_ID',
+  'GCP_SERVICE_ACCOUNT_EMAIL', 
+  'GCP_PRIVATE_KEY',
+  'GCS_BUCKET_NAME'
+];
+
+const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
+const missingOptionalVars = optionalEnvVars.filter(varName => !process.env[varName]);
+
+if (missingVars.length > 0) {
+  console.error('🚨 BŁĄD: Brakujące wymagane zmienne środowiskowe:');
+  missingVars.forEach(varName => {
+    console.error(`   - ${varName}`);
+  });
+  console.error('\n📋 Sprawdź plik SETUP.md dla instrukcji konfiguracji.');
+  console.error('💡 Skopiuj backend/env.example do backend/.env i wypełnij brakujące dane.\n');
+  
+  // W trybie development pozwalamy uruchomić serwer mimo braków
+  if (process.env.NODE_ENV !== 'development') {
+    process.exit(1);
+  }
+  console.log('⚠️  Uruchamiam w trybie development mimo braków w konfiguracji...\n');
+}
+
+if (missingOptionalVars.length > 0) {
+  console.log('ℹ️  Opcjonalne zmienne środowiskowe (funkcje będą ograniczone):');
+  missingOptionalVars.forEach(varName => {
+    console.log(`   - ${varName}`);
+  });
+  console.log('💡 Google Cloud OCR niedostępny - używamy lokalnych metod OCR\n');
+}
+
+const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
+
+const visionClient = process.env.GCP_PROJECT_ID ? new vision.ImageAnnotatorClient({
   credentials: {
     client_email: process.env.GCP_SERVICE_ACCOUNT_EMAIL,
-    private_key: process.env.GCP_PRIVATE_KEY.replace(/\\n/g, '\n'),
+    private_key: process.env.GCP_PRIVATE_KEY?.replace(/\\n/g, '\n'),
   },
   projectId: process.env.GCP_PROJECT_ID,
-});
-const gcsStorage = new Storage({
+}) : null;
+
+const gcsStorage = process.env.GCP_PROJECT_ID ? new Storage({
   credentials: {
     client_email: process.env.GCP_SERVICE_ACCOUNT_EMAIL,
-    private_key: process.env.GCP_PRIVATE_KEY.replace(/\\n/g, '\n'),
+    private_key: process.env.GCP_PRIVATE_KEY?.replace(/\\n/g, '\n'),
   },
   projectId: process.env.GCP_PROJECT_ID,
-});
+}) : null;
 
-const pool = new Pool({
+const pool = process.env.DATABASE_URL ? new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
-});
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+}) : null;
 
 const uploadDir = '/tmp/uploads';
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
@@ -59,10 +102,88 @@ const upload = multer({ storage: multerStorage });
 
 const sanitizePhone = (phone) => phone.replace(/[-\s]/g, '');
 
+// ============ NOWE FUNKCJE OCR BEZ GOOGLE CLOUD =================
+
+// 1. Próba wyciągnięcia tekstu z PDF za pomocą pdf-parse
+async function extractTextFromPDFLocal(filePath) {
+  try {
+    const dataBuffer = fs.readFileSync(filePath);
+    const data = await pdfParse(dataBuffer);
+    return data.text;
+  } catch (error) {
+    console.log('PDF-parse failed:', error.message);
+    return null;
+  }
+}
+
+// 2. OCR z Tesseract.js (dla zeskanowanych PDF-ów)
+async function extractTextWithTesseract(filePath) {
+  try {
+    const { data: { text } } = await Tesseract.recognize(filePath, 'pol', {
+      logger: m => console.log(m)
+    });
+    return text;
+  } catch (error) {
+    console.log('Tesseract OCR failed:', error.message);
+    return null;
+  }
+}
+
+// 3. Funkcja automatycznego wyboru metody OCR
+async function extractTextFromPDF(filePath) {
+  console.log('🔍 Rozpoczynam ekstrakcję tekstu z PDF...');
+  
+  // Najpierw próbuj pdf-parse (szybkie dla tekstowych PDF-ów)
+  console.log('📄 Próbuję pdf-parse...');
+  let text = await extractTextFromPDFLocal(filePath);
+  
+  if (text && text.trim().length > 50) {
+    console.log('✅ PDF-parse sukces - znaleziono tekst');
+    return text;
+  }
+  
+  console.log('⚠️  PDF-parse nie wykrył wystarczająco tekstu, próbuję Tesseract OCR...');
+  
+  // Jeśli pdf-parse nie zadziałał, użyj Tesseract
+  text = await extractTextWithTesseract(filePath);
+  
+  if (text && text.trim().length > 20) {
+    console.log('✅ Tesseract OCR sukces');
+    return text;
+  }
+  
+  // Jeśli mamy Google Cloud, spróbuj jako ostatnia opcja
+  if (visionClient && gcsStorage) {
+    console.log('🌥️  Próbuję Google Cloud OCR jako ostatnią opcję...');
+    try {
+      const bucketName = process.env.GCS_BUCKET_NAME;
+      const destFileName = `${Date.now()}-${path.basename(filePath)}`;
+      const gcsSourceUri = await uploadFileToGCS(filePath, bucketName, destFileName);
+      const ocrResultPrefix = `ocr-results/${Date.now()}/`;
+      const gcsDestinationUri = `gs://${bucketName}/${ocrResultPrefix}`;
+      await extractTextFromPDFWithOCR(gcsSourceUri, gcsDestinationUri);
+      text = await downloadOcrResultFromGCS(bucketName, ocrResultPrefix);
+      
+      if (text && text.trim().length > 20) {
+        console.log('✅ Google Cloud OCR sukces');
+        return text;
+      }
+    } catch (error) {
+      console.log('❌ Google Cloud OCR failed:', error.message);
+    }
+  }
+  
+  console.log('❌ Wszystkie metody OCR zawiodły');
+  throw new Error('Nie udało się wyciągnąć tekstu z PDF. Sprawdź czy plik zawiera czytelny tekst.');
+}
+
+// ============ STARE FUNKCJE GOOGLE CLOUD (zachowane dla kompatybilności) =================
+
 async function uploadFileToGCS(localFilePath, bucketName, destFileName) {
   await gcsStorage.bucket(bucketName).upload(localFilePath, { destination: destFileName });
   return `gs://${bucketName}/${destFileName}`;
 }
+
 async function extractTextFromPDFWithOCR(gcsSourceUri, gcsDestinationUri) {
   const inputConfig = {
     mimeType: 'application/pdf',
@@ -79,6 +200,7 @@ async function extractTextFromPDFWithOCR(gcsSourceUri, gcsDestinationUri) {
   const [operation] = await visionClient.asyncBatchAnnotateFiles(request);
   await operation.promise();
 }
+
 async function downloadOcrResultFromGCS(bucketName, prefix) {
   const [files] = await gcsStorage.bucket(bucketName).getFiles({ prefix });
   let fullText = '';
@@ -94,13 +216,12 @@ async function downloadOcrResultFromGCS(bucketName, prefix) {
   return fullText;
 }
 
-// ============ NOWOŚĆ: Funkcja pobierająca wiedzę z MedlinePlus =================
+// ============ MEDLINE PLUS =================
 async function getMedlinePlusInfo(term) {
   const url = `https://wsearch.nlm.nih.gov/ws/query?db=healthTopics&term=${encodeURIComponent(term)}&retmax=1`;
   try {
     const res = await fetch(url);
     const text = await res.text();
-    // Prosta ekstrakcja pierwszego tematu, lepszą możesz dodać sam!
     const match = text.match(/<title>([^<]+)<\/title>[\s\S]*?<fullsummary>([\s\S]+?)<\/fullsummary>/i);
     if (match) {
       return `${match[1]}: ${match[2]}`;
@@ -111,7 +232,6 @@ async function getMedlinePlusInfo(term) {
     return '';
   }
 }
-// ==============================================================================
 
 app.post('/api/register', async (req, res) => {
   const { name, email, phone } = req.body;
@@ -224,7 +344,6 @@ app.get('/api/parameters/:user_id', async (req, res) => {
 });
 
 // --- ZAAWANSOWANA ANALIZA - AGENT Z PAMIĘCIĄ ---
-// Uwaga: W tym przykładzie MedlinePlus podaje info o anemii – możesz dynamicznie dodać inne terminy!
 app.post('/api/analyze-file', async (req, res) => {
   const { document_id, user_id } = req.body;
   try {
@@ -236,13 +355,20 @@ app.post('/api/analyze-file', async (req, res) => {
 
     const filePath = path.join(uploadDir, docs[0].filepath);
 
-    const bucketName = process.env.GCS_BUCKET_NAME;
-    const destFileName = `${Date.now()}-${docs[0].filename}`;
-    const gcsSourceUri = await uploadFileToGCS(filePath, bucketName, destFileName);
-    const ocrResultPrefix = `ocr-results/${Date.now()}-${docs[0].id}/`;
-    const gcsDestinationUri = `gs://${bucketName}/${ocrResultPrefix}`;
-    await extractTextFromPDFWithOCR(gcsSourceUri, gcsDestinationUri);
-    const text = await downloadOcrResultFromGCS(bucketName, ocrResultPrefix);
+    // NOWA LOGIKA: Użyj lokalnego OCR zamiast Google Cloud
+    console.log(`🔍 Analizuję plik: ${docs[0].filename}`);
+    let text;
+    
+    try {
+      text = await extractTextFromPDF(filePath);
+      console.log(`✅ Wyciągnięto ${text.length} znaków tekstu`);
+    } catch (ocrError) {
+      console.error('❌ Błąd OCR:', ocrError.message);
+      return res.status(500).json({ 
+        error: 'Nie udało się wyciągnąć tekstu z pliku PDF. Sprawdź czy plik zawiera czytelny tekst.',
+        details: ocrError.message 
+      });
+    }
 
     const { symptoms, chronic_diseases, medications } = docs[0];
 
@@ -261,18 +387,18 @@ app.post('/api/analyze-file', async (req, res) => {
       medicalInfo = await getMedlinePlusInfo('anemia');
     }
    
+    const { rows: previousParameters } = await pool.query(
+      'SELECT parameter_name, parameter_value, measurement_date FROM parameters WHERE user_id = $1 ORDER BY measurement_date DESC LIMIT 10',
+      [user_id]
+    );
 
-const { rows: previousParameters } = await pool.query(
-  'SELECT parameter_name, parameter_value, measurement_date FROM parameters WHERE user_id = $1 ORDER BY measurement_date DESC LIMIT 10',
-  [user_id]
-);
-
-let historyText = '';
-if (previousParameters.length > 0) {
-  historyText = 'Moje poprzednie wyniki badań to:\n' + previousParameters.map(
-    p => `${p.parameter_name}: ${p.parameter_value} (Data: ${p.measurement_date})`
-  ).join('\n');
-}
+    let historyText = '';
+    if (previousParameters.length > 0) {
+      historyText = 'Moje poprzednie wyniki badań to:\n' + previousParameters.map(
+        p => `${p.parameter_name}: ${p.parameter_value} (Data: ${p.measurement_date})`
+      ).join('\n');
+    }
+    
     // -- GŁÓWNY PROMPT --
     const prompt = `
 ${historyText ? historyText + '\n\n' : ''}
@@ -299,24 +425,35 @@ Jeśli istnieją istotne zmiany względem poprzednich badań, wskaż je.`;
 
     let analysis;
     try {
+      if (!openai) {
+        throw new Error('OpenAI API niedostępne - brak klucza API');
+      }
+      
       const completion = await openai.chat.completions.create({
-        model: "gpt-4.1",
+        model: "gpt-4o", // Używamy najnowszego modelu
         messages: openAiMessages,
         temperature: 0.2,
       });
       analysis = completion.choices[0].message.content;
     } catch (err) {
       console.error('[OPENAI] Błąd połączenia z ChatGPT:', err);
-      throw err;
+      return res.status(500).json({ 
+        error: 'Błąd analizy AI', 
+        details: err.message 
+      });
     }
 
     // Zapisz do historii (agent_memory)
-    await pool.query(
-      'INSERT INTO agent_memory (user_id, message, role) VALUES ($1, $2, $3)', [user_id, prompt, 'user']
-    );
-    await pool.query(
-      'INSERT INTO agent_memory (user_id, message, role) VALUES ($1, $2, $3)', [user_id, analysis, 'assistant']
-    );
+    if (pool) {
+      await pool.query(
+        'INSERT INTO agent_memory (user_id, message, role) VALUES ($1, $2, $3)', 
+        [user_id, prompt, 'user']
+      );
+      await pool.query(
+        'INSERT INTO agent_memory (user_id, message, role) VALUES ($1, $2, $3)', 
+        [user_id, analysis, 'assistant']
+      );
+    }
 
     // Parsowanie HTML tabeli do parameters
     const $ = cheerio.load(analysis);
@@ -331,10 +468,12 @@ Jeśli istnieją istotne zmiany względem poprzednich badań, wskaż je.`;
 
         if (paramName && paramName !== 'Podsumowanie' && paramValue && paramDate) {
           try {
-            await pool.query(
-              'INSERT INTO parameters (user_id, document_id, parameter_name, parameter_value, parameter_comment, measurement_date) VALUES ($1, $2, $3, $4, $5, $6)',
-              [user_id, document_id, paramName, paramValue, paramComment, paramDate]
-            );
+            if (pool) {
+              await pool.query(
+                'INSERT INTO parameters (user_id, document_id, parameter_name, parameter_value, parameter_comment, measurement_date) VALUES ($1, $2, $3, $4, $5, $6)',
+                [user_id, document_id, paramName, paramValue, paramComment, paramDate]
+              );
+            }
           } catch (err) {
             console.error('Błąd dodawania parametru:', err);
           }
@@ -343,10 +482,12 @@ Jeśli istnieją istotne zmiany względem poprzednich badań, wskaż je.`;
     }
 
     // Save analysis HTML
-    await pool.query(
-      'UPDATE documents SET analysis = $1 WHERE id = $2',
-      [analysis, document_id]
-    );
+    if (pool) {
+      await pool.query(
+        'UPDATE documents SET analysis = $1 WHERE id = $2',
+        [analysis, document_id]
+      );
+    }
 
     res.json({ analysis });
   } catch (error) {
