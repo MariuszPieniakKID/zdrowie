@@ -10,10 +10,10 @@
   --warning-gradient: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
   --danger-gradient: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
   
-  /* Dark theme colors - Updated for better contrast */
-  --bg-primary: #0a0a0b;
-  --bg-secondary: #151516;
-  --bg-tertiary: #1f1f21;
+  /* Dark theme colors - Changed to lighter navy tones */
+  --bg-primary: #1a1d29;
+  --bg-secondary: #242938;
+  --bg-tertiary: #2d3748;
   --bg-card: rgba(255, 255, 255, 0.08);
   --bg-glass: rgba(255, 255, 255, 0.12);
   
