@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Line } from 'react-chartjs-2';
-import { FaChartLine, FaCheckSquare, FaSquare, FaBrain, FaCalendarAlt, FaChartBar, FaTable, FaInfoCircle, FaCaretDown, FaCaretRight } from 'react-icons/fa';
+import { FaChartLine, FaCheckSquare, FaSquare, FaBrain, FaChartBar, FaTable, FaInfoCircle, FaCaretDown, FaCaretRight } from 'react-icons/fa';
 import './components.css';
 
 /**
