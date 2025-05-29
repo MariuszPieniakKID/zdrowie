@@ -12,6 +12,8 @@ const cheerio = require('cheerio');
 const fetch = require('node-fetch');
 const pdfParse = require('pdf-parse');
 const Tesseract = require('tesseract.js');
+const pdf = require('pdf-poppler');
+const sharp = require('sharp');
 
 const app = express();
 
@@ -104,6 +106,144 @@ const sanitizePhone = (phone) => phone.replace(/[-\s]/g, '');
 
 // ============ NOWE FUNKCJE OCR BEZ GOOGLE CLOUD =================
 
+// 🚀 NOWOŚĆ: GPT-4 Vision - bezpośrednia analiza obrazów/PDF-ów
+async function analyzeFileWithGPT4Vision(filePath, symptoms, chronic_diseases, medications) {
+  try {
+    console.log('🤖 Próbuję GPT-4 Vision...');
+    
+    if (!openai) {
+      throw new Error('OpenAI API niedostępne');
+    }
+
+    let base64Images = [];
+    
+    // Sprawdź czy to PDF czy obraz
+    const fileExtension = path.extname(filePath).toLowerCase();
+    
+    if (fileExtension === '.pdf') {
+      console.log('📄 Konwertuję PDF na obrazy...');
+      
+      // Konwertuj PDF na obrazy
+      const outputDir = path.join(path.dirname(filePath), 'temp_images');
+      if (!fs.existsSync(outputDir)) {
+        fs.mkdirSync(outputDir, { recursive: true });
+      }
+      
+      const options = {
+        format: 'jpeg',
+        out_dir: outputDir,
+        out_prefix: 'page',
+        page: null // wszystkie strony
+      };
+      
+      const pdfData = await pdf.convert(filePath, options);
+      console.log(`📄 Skonwertowano ${pdfData.length} stron PDF`);
+      
+      // Czytaj każdą stronę jako base64
+      for (let i = 1; i <= pdfData.length; i++) {
+        const imagePath = path.join(outputDir, `page-${i}.jpg`);
+        if (fs.existsSync(imagePath)) {
+          // Zmniejsz rozmiar obrazu dla OpenAI (max 20MB, zalecane: < 2MB)
+          const optimizedBuffer = await sharp(imagePath)
+            .resize(1500, null, { withoutEnlargement: true, fit: 'inside' })
+            .jpeg({ quality: 85 })
+            .toBuffer();
+          
+          const base64 = optimizedBuffer.toString('base64');
+          base64Images.push(base64);
+        }
+      }
+      
+      // Sprzątanie
+      fs.rmSync(outputDir, { recursive: true, force: true });
+      
+    } else if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(fileExtension)) {
+      console.log('🖼️ Przetwarzam obraz...');
+      
+      // Bezpośrednio obraz
+      const optimizedBuffer = await sharp(filePath)
+        .resize(1500, null, { withoutEnlargement: true, fit: 'inside' })
+        .jpeg({ quality: 85 })
+        .toBuffer();
+      
+      const base64 = optimizedBuffer.toString('base64');
+      base64Images.push(base64);
+    } else {
+      throw new Error(`Nieobsługiwany format pliku: ${fileExtension}`);
+    }
+
+    if (base64Images.length === 0) {
+      throw new Error('Nie udało się przygotować obrazów');
+    }
+
+    console.log(`🖼️ Przygotowano ${base64Images.length} obrazów dla GPT-4 Vision`);
+
+    // Przygotuj wiadomości dla GPT-4 Vision
+    const content = [
+      {
+        type: "text",
+        text: `Jestem lekarzem analizującym wyniki badań medycznych. 
+
+KONTEKST PACJENTA:
+- Symptomy: ${symptoms || 'brak'}
+- Choroby przewlekłe: ${chronic_diseases || 'brak'}  
+- Leki: ${medications || 'brak'}
+
+ZADANIE: Przeanalizuj dokument medyczny na obrazach i wyciągnij WSZYSTKIE parametry laboratoryjne/badań w formacie strukturyzowanym.
+
+WYMAGANY FORMAT ODPOWIEDZI:
+Podaj wyniki w tabeli HTML <table> z kolumnami:
+- Parametr 
+- Wartość
+- Komentarz (uwagi, zakres referencyjny)
+- Data badania (YYYY-MM-DD)
+
+Jeśli nie ma wyraźnej daty, użyj dzisiejszej. Jeśli nie ma zakresów referencyjnych, dodaj standardowe.
+Zaznacz wartości poza normą.
+
+Przeanalizuj dokładnie każdy element na obrazach.`
+      }
+    ];
+
+    // Dodaj wszystkie obrazy
+    base64Images.forEach((base64, index) => {
+      content.push({
+        type: "image_url",
+        image_url: {
+          url: `data:image/jpeg;base64,${base64}`,
+          detail: "high" // wysoka jakość analizy
+        }
+      });
+    });
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o", // GPT-4 Vision
+      messages: [
+        {
+          role: "user",
+          content: content
+        }
+      ],
+      max_tokens: 4000,
+      temperature: 0.1
+    });
+
+    const analysis = response.choices[0].message.content;
+    console.log('✅ GPT-4 Vision - sukces!');
+    
+    return { 
+      success: true, 
+      analysis: analysis,
+      method: 'GPT-4 Vision',
+      images_processed: base64Images.length
+    };
+
+  } catch (error) {
+    console.log('❌ GPT-4 Vision failed:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
 // 1. Próba wyciągnięcia tekstu z PDF za pomocą pdf-parse
 async function extractTextFromPDFLocal(filePath) {
   try {
@@ -130,31 +270,50 @@ async function extractTextWithTesseract(filePath) {
 }
 
 // 3. Funkcja automatycznego wyboru metody OCR
-async function extractTextFromPDF(filePath) {
+async function extractTextFromPDF(filePath, symptoms = '', chronic_diseases = '', medications = '') {
   console.log('🔍 Rozpoczynam ekstrakcję tekstu z PDF...');
   
-  // Najpierw próbuj pdf-parse (szybkie dla tekstowych PDF-ów)
+  // 🚀 NOWOŚĆ: Najpierw próbuj GPT-4 Vision (jeśli dostępne)
+  if (openai) {
+    console.log('🤖 Próbuję GPT-4 Vision jako pierwszą opcję...');
+    const visionResult = await analyzeFileWithGPT4Vision(filePath, symptoms, chronic_diseases, medications);
+    
+    if (visionResult.success) {
+      console.log(`✅ GPT-4 Vision sukces - przetworzono ${visionResult.images_processed} obrazów`);
+      return {
+        text: visionResult.analysis,
+        method: 'GPT-4 Vision',
+        isDirectAnalysis: true // oznacza że to już gotowa analiza, nie surowy tekst
+      };
+    } else {
+      console.log(`⚠️ GPT-4 Vision failed: ${visionResult.error}, próbuję inne metody...`);
+    }
+  } else {
+    console.log('⚠️ OpenAI API niedostępne, pomijam GPT-4 Vision');
+  }
+
+  // Fallback: Stare metody OCR dla wyciągnięcia surowego tekstu
   console.log('📄 Próbuję pdf-parse...');
   let text = await extractTextFromPDFLocal(filePath);
   
   if (text && text.trim().length > 50) {
     console.log('✅ PDF-parse sukces - znaleziono tekst');
-    return text;
+    return { text, method: 'pdf-parse', isDirectAnalysis: false };
   }
   
-  console.log('⚠️  PDF-parse nie wykrył wystarczająco tekstu, próbuję Tesseract OCR...');
+  console.log('⚠️ PDF-parse nie wykrył wystarczająco tekstu, próbuję Tesseract OCR...');
   
   // Jeśli pdf-parse nie zadziałał, użyj Tesseract
   text = await extractTextWithTesseract(filePath);
   
   if (text && text.trim().length > 20) {
     console.log('✅ Tesseract OCR sukces');
-    return text;
+    return { text, method: 'Tesseract', isDirectAnalysis: false };
   }
   
-  // Jeśli mamy Google Cloud, spróbuj jako ostatnia opcja
+  // Jeśli mamy Google Cloud, spróbuj jako ostatnia opcja (ale pewnie będzie błąd billing)
   if (visionClient && gcsStorage) {
-    console.log('🌥️  Próbuję Google Cloud OCR jako ostatnią opcję...');
+    console.log('🌥️ Próbuję Google Cloud OCR jako ostatnią opcję...');
     try {
       const bucketName = process.env.GCS_BUCKET_NAME;
       const destFileName = `${Date.now()}-${path.basename(filePath)}`;
@@ -166,7 +325,7 @@ async function extractTextFromPDF(filePath) {
       
       if (text && text.trim().length > 20) {
         console.log('✅ Google Cloud OCR sukces');
-        return text;
+        return { text, method: 'Google Cloud OCR', isDirectAnalysis: false };
       }
     } catch (error) {
       console.log('❌ Google Cloud OCR failed:', error.message);
@@ -357,11 +516,11 @@ app.post('/api/analyze-file', async (req, res) => {
 
     // NOWA LOGIKA: Użyj lokalnego OCR zamiast Google Cloud
     console.log(`🔍 Analizuję plik: ${docs[0].filename}`);
-    let text;
+    let extractResult;
     
     try {
-      text = await extractTextFromPDF(filePath);
-      console.log(`✅ Wyciągnięto ${text.length} znaków tekstu`);
+      extractResult = await extractTextFromPDF(filePath, docs[0].symptoms, docs[0].chronic_diseases, docs[0].medications);
+      console.log(`✅ Wyciągnięto ${extractResult.text.length} znaków tekstu metodą: ${extractResult.method}`);
     } catch (ocrError) {
       console.error('❌ Błąd OCR:', ocrError.message);
       return res.status(500).json({ 
@@ -371,88 +530,105 @@ app.post('/api/analyze-file', async (req, res) => {
     }
 
     const { symptoms, chronic_diseases, medications } = docs[0];
+    let analysis;
 
-    // --- PAMIĘĆ AGENTA: pobierz ostatnie 5 konwersacji usera
-    const { rows: historyRows } = await pool.query(
-      'SELECT message, role FROM agent_memory WHERE user_id = $1 ORDER BY timestamp DESC LIMIT 5',
-      [user_id]
-    );
-    const chatHistory = historyRows.reverse().map(h => ({
-      role: h.role, content: h.message
-    }));
+    // 🚀 Jeśli GPT-4 Vision już dokonał analizy, użyj jej bezpośrednio
+    if (extractResult.isDirectAnalysis) {
+      console.log('🤖 Używam gotowej analizy z GPT-4 Vision');
+      analysis = extractResult.text;
+      
+      // Dodaj info o metodzie na końcu
+      analysis += `\n\n<p><small><strong>Metoda analizy:</strong> ${extractResult.method}</small></p>`;
+      
+    } else {
+      // Standardowa ścieżka: wyciągnięty tekst + analiza przez OpenAI
+      console.log(`📝 Analizuję wyciągnięty tekst metodą: ${extractResult.method}`);
+      
+      // --- PAMIĘĆ AGENTA: pobierz ostatnie 5 konwersacji usera
+      const { rows: historyRows } = await pool.query(
+        'SELECT message, role FROM agent_memory WHERE user_id = $1 ORDER BY timestamp DESC LIMIT 5',
+        [user_id]
+      );
+      const chatHistory = historyRows.reverse().map(h => ({
+        role: h.role, content: h.message
+      }));
 
-    // MedlinePlus (jeśli na przykład wykryto "anemia" w tekście)
-    let medicalInfo = '';
-    if ((text || '').toLowerCase().includes('anemia')) {
-      medicalInfo = await getMedlinePlusInfo('anemia');
-    }
-   
-    const { rows: previousParameters } = await pool.query(
-      'SELECT parameter_name, parameter_value, measurement_date FROM parameters WHERE user_id = $1 ORDER BY measurement_date DESC LIMIT 10',
-      [user_id]
-    );
+      // MedlinePlus (jeśli na przykład wykryto "anemia" w tekście)
+      let medicalInfo = '';
+      if ((extractResult.text || '').toLowerCase().includes('anemia')) {
+        medicalInfo = await getMedlinePlusInfo('anemia');
+      }
+     
+      const { rows: previousParameters } = await pool.query(
+        'SELECT parameter_name, parameter_value, measurement_date FROM parameters WHERE user_id = $1 ORDER BY measurement_date DESC LIMIT 10',
+        [user_id]
+      );
 
-    let historyText = '';
-    if (previousParameters.length > 0) {
-      historyText = 'Moje poprzednie wyniki badań to:\n' + previousParameters.map(
-        p => `${p.parameter_name}: ${p.parameter_value} (Data: ${p.measurement_date})`
-      ).join('\n');
-    }
-    
-    // -- GŁÓWNY PROMPT --
-    const prompt = `
+      let historyText = '';
+      if (previousParameters.length > 0) {
+        historyText = 'Moje poprzednie wyniki badań to:\n' + previousParameters.map(
+          p => `${p.parameter_name}: ${p.parameter_value} (Data: ${p.measurement_date})`
+        ).join('\n');
+      }
+      
+      // -- GŁÓWNY PROMPT --
+      const prompt = `
 ${historyText ? historyText + '\n\n' : ''}
 Biorąc pod uwagę moje symptomy: ${symptoms || 'brak'}, oraz choroby przewlekłe: ${chronic_diseases || 'brak'}, oraz leki jakie biorę: ${medications || 'brak'}, przeanalizuj poniższe wyniki badań laboratoryjnych.
 
 Podaj wyniki badań w tabeli HTML (<table>) z następującymi kolumnami: Parametr, Wartość, Komentarz, Data badania (YYYY-MM-DD).
 
 Oto tekst z badania (wyniki laboratoryjne):
-${text}
+${extractResult.text}
 ${medicalInfo ? "\n\nDodatkowe informacje z MedlinePlus:\n" + medicalInfo : ""}
 ... Jeśli w tekście nie ma wyraźnych dat badań, użyj daty z nazwy pliku lub przyjmij dzisiejszą datę.
 Jeśli w tekście nie ma wyraźnych wartości referencyjnych, dodaj standardowe zakresy referencyjne w komentarzu.
 Jeśli jakieś wartości są poza zakresem referencyjnym, wyraźnie to zaznacz w komentarzu.
 Jeśli istnieją istotne zmiany względem poprzednich badań, wskaż je.`;
 
-    const openAiMessages = [
-      {
-        role: "system",
-        content: "Jesteś doświadczonym lekarzem, który analizuje wyniki badań laboratoryjnych. Przeprowadzasz dokładną analizę tych badań biorąc pod uwagę choroby, leki i objawy pacjenta. Zwracasz szczególną uwagę na nieprawidłowe wyniki. Zachowujesz profesjonalny i empatyczny ton. Potrafisz odczytać i zinterpretować nawet niewyraźne lub częściowo uszkodzone wyniki badań. Jeśli dane są niekompletne lub nieczytelne, zaznaczasz to w komentarzu."
-      },
-      ...chatHistory,
-      { role: "user", content: prompt }
-    ];
+      const openAiMessages = [
+        {
+          role: "system",
+          content: "Jesteś doświadczonym lekarzem, który analizuje wyniki badań laboratoryjnych. Przeprowadzasz dokładną analizę tych badań biorąc pod uwagę choroby, leki i objawy pacjenta. Zwracasz szczególną uwagę na nieprawidłowe wyniki. Zachowujesz profesjonalny i empatyczny ton. Potrafisz odczytać i zinterpretować nawet niewyraźne lub częściowo uszkodzone wyniki badań. Jeśli dane są niekompletne lub nieczytelne, zaznaczasz to w komentarzu."
+        },
+        ...chatHistory,
+        { role: "user", content: prompt }
+      ];
 
-    let analysis;
-    try {
-      if (!openai) {
-        throw new Error('OpenAI API niedostępne - brak klucza API');
+      try {
+        if (!openai) {
+          throw new Error('OpenAI API niedostępne - brak klucza API');
+        }
+        
+        const completion = await openai.chat.completions.create({
+          model: "gpt-4o", // Używamy najnowszego modelu
+          messages: openAiMessages,
+          temperature: 0.2,
+        });
+        analysis = completion.choices[0].message.content;
+        
+        // Dodaj info o metodzie OCR na końcu
+        analysis += `\n\n<p><small><strong>Metoda OCR:</strong> ${extractResult.method}</small></p>`;
+        
+      } catch (err) {
+        console.error('[OPENAI] Błąd połączenia z ChatGPT:', err);
+        return res.status(500).json({ 
+          error: 'Błąd analizy AI', 
+          details: err.message 
+        });
       }
-      
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o", // Używamy najnowszego modelu
-        messages: openAiMessages,
-        temperature: 0.2,
-      });
-      analysis = completion.choices[0].message.content;
-    } catch (err) {
-      console.error('[OPENAI] Błąd połączenia z ChatGPT:', err);
-      return res.status(500).json({ 
-        error: 'Błąd analizy AI', 
-        details: err.message 
-      });
-    }
 
-    // Zapisz do historii (agent_memory)
-    if (pool) {
-      await pool.query(
-        'INSERT INTO agent_memory (user_id, message, role) VALUES ($1, $2, $3)', 
-        [user_id, prompt, 'user']
-      );
-      await pool.query(
-        'INSERT INTO agent_memory (user_id, message, role) VALUES ($1, $2, $3)', 
-        [user_id, analysis, 'assistant']
-      );
+      // Zapisz do historii (agent_memory) tylko gdy nie było bezpośredniej analizy
+      if (pool) {
+        await pool.query(
+          'INSERT INTO agent_memory (user_id, message, role) VALUES ($1, $2, $3)', 
+          [user_id, prompt, 'user']
+        );
+        await pool.query(
+          'INSERT INTO agent_memory (user_id, message, role) VALUES ($1, $2, $3)', 
+          [user_id, analysis, 'assistant']
+        );
+      }
     }
 
     // Parsowanie HTML tabeli do parameters
@@ -527,7 +703,7 @@ app.post('/api/summarize', async (req, res) => {
     let summary;
     try {
       const completion = await openai.chat.completions.create({
-               model: "gpt-4.1",
+        model: "gpt-4o",
         messages: openAiMessages,
         temperature: 0.3,
       });

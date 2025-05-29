@@ -20,7 +20,10 @@
     "node-fetch": "^2.6.7",
     "openai": "^4.100.0",
     "pdf-parse": "^1.1.1",
+    "pdf-poppler": "^0.2.1",
+    "pdf2pic": "^3.2.0",
     "pg": "^8.16.0",
+    "sharp": "^0.34.2",
     "tesseract.js": "^5.0.0"
   },
   "devDependencies": {
@@ -29,4 +32,4 @@
   "engines": {
     "node": ">=18.0.0"
   }
-} 
+}

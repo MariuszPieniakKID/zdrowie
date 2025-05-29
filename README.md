@@ -198,8 +198,10 @@ Dodaj w panelu Vercel (Settings → Environment Variables):
 
 - ✅ Rejestracja i logowanie użytkowników
 - ✅ Upload i analiza plików PDF z wynikami badań
+- ✅ **🚀 GPT-4 Vision** - bezpośrednia analiza obrazów i PDF-ów bez OCR!
 - ✅ **Inteligentny OCR** - automatyczny wybór najlepszej metody:
-  - 📄 **pdf-parse** - szybkie dla tekstowych PDF-ów
+  - 🤖 **GPT-4 Vision** - bezpośrednia analiza obrazów (najlepsza jakość)
+  - 📄 **pdf-parse** - szybkie dla tekstowych PDF-ów  
   - 🔍 **tesseract.js** - lokalny OCR dla zeskanowanych PDF-ów
   - 🌥️ **Google Cloud OCR** - backup (opcjonalny)
 - ✅ Analiza AI z pamięcią kontekstu (GPT-4)
@@ -245,19 +247,32 @@ psql -l | grep badania_local
 ### Problem z analizą PDF-ów
 **Aplikacja automatycznie wybierze najlepszą metodę OCR:**
 
-1. **pdf-parse** - dla PDF-ów z tekstem (najszybsza)
-2. **tesseract.js** - lokalny OCR dla zeskanowanych PDF-ów
-3. **Google Cloud OCR** - backup jeśli skonfigurowany
+1. **GPT-4 Vision** - najlepsza jakość, analizuje bezpośrednio obrazy/PDF-y
+2. **pdf-parse** - dla PDF-ów z tekstem (najszybsza)
+3. **tesseract.js** - lokalny OCR dla zeskanowanych PDF-ów
+4. **Google Cloud OCR** - backup jeśli skonfigurowany
+
+**Jeśli GPT-4 Vision działa:**
+- Będzie używany jako pierwsza opcja
+- Obsługuje wielostronicowe PDF-y 
+- Najlepsza jakość rozpoznawania polskich znaków
+- Nie potrzebuje Google Cloud
 
 **Jeśli wszystkie metody zawiodą:**
 - Sprawdź czy PDF zawiera czytelny tekst
 - Sprawdź jakość skanu (dla tesseract.js)
-- Sprawdź logi backendu
+- Sprawdź logi backendu aby zobaczyć którą metodę wybrano
+
+### Problem z Google Cloud billing
+Jeśli widzisz błąd `"billing account for the owning project is disabled"`:
+- **Rozwiązanie**: GPT-4 Vision zastąpi Google Cloud OCR
+- Google Cloud OCR jest teraz opcjonalny (backup)
+- Aplikacja będzie działać bez Google Cloud
 
 ### Problem z OpenAI/Google Cloud
-- **OpenAI** jest wymagany do analizy AI
+- **OpenAI** jest wymagany do analizy AI i GPT-4 Vision
 - **Google Cloud** jest opcjonalny - używany tylko jako backup OCR
-- Aplikacja będzie działać z lokalnym OCR bez Google Cloud
+- Aplikacja będzie działać z GPT-4 Vision + lokalnym OCR bez Google Cloud
 
 ## 📞 Support
 
