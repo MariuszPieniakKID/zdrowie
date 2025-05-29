@@ -205,12 +205,12 @@
 
 .modern-input,
 .modern-textarea {
-  background: var(--bg-card);
+  background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
-  border: 1px solid var(--border-color);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 12px;
   padding: 1rem 1.25rem;
-  color: var(--text-primary);
+  color: #1f2937;
   font-size: 1rem;
   transition: all 0.3s ease;
   font-family: 'Inter', sans-serif;
@@ -220,13 +220,13 @@
 .modern-textarea:focus {
   outline: none;
   border-color: var(--accent-blue);
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 1);
   box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
 }
 
 .modern-input::placeholder,
 .modern-textarea::placeholder {
-  color: var(--text-muted);
+  color: #6b7280;
 }
 
 .modern-textarea {
@@ -555,12 +555,21 @@
 }
 
 .modern-analysis-content p {
-  color: var(--text-secondary);
+  color: var(--text-primary);
   margin-bottom: 1rem;
 }
 
 .modern-analysis-content strong {
   color: var(--text-primary);
+}
+
+.modern-analysis-content ul {
+  color: var(--text-primary);
+}
+
+.modern-analysis-content li {
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
 }
 
 /* Danger Zone */
