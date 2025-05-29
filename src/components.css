@@ -205,12 +205,12 @@
 
 .modern-input,
 .modern-textarea {
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.15);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 1rem 1.25rem;
-  color: #1f2937;
+  color: var(--text-primary);
   font-size: 1rem;
   transition: all 0.3s ease;
   font-family: 'Inter', sans-serif;
@@ -220,13 +220,13 @@
 .modern-textarea:focus {
   outline: none;
   border-color: var(--accent-blue);
-  background: rgba(255, 255, 255, 1);
+  background: rgba(255, 255, 255, 0.25);
   box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
 }
 
 .modern-input::placeholder,
 .modern-textarea::placeholder {
-  color: #6b7280;
+  color: var(--text-muted);
 }
 
 .modern-textarea {
@@ -526,7 +526,7 @@
 }
 
 .modern-analysis-content {
-  color: var(--text-secondary);
+  color: var(--text-primary);
   line-height: 1.6;
 }
 
@@ -534,7 +534,7 @@
   width: 100%;
   border-collapse: collapse;
   margin: 1rem 0;
-  background: var(--bg-glass);
+  background: var(--bg-secondary);
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid var(--border-color);
@@ -549,7 +549,7 @@
 }
 
 .modern-analysis-content th {
-  background: rgba(103, 126, 234, 0.15);
+  background: var(--bg-tertiary);
   font-weight: 600;
   color: var(--text-primary);
 }
@@ -570,6 +570,15 @@
 .modern-analysis-content li {
   color: var(--text-primary);
   margin-bottom: 0.5rem;
+}
+
+.modern-analysis-content h1,
+.modern-analysis-content h2,
+.modern-analysis-content h3,
+.modern-analysis-content h4,
+.modern-analysis-content h5,
+.modern-analysis-content h6 {
+  color: var(--text-primary);
 }
 
 /* Danger Zone */
