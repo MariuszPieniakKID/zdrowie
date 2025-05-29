@@ -7,6 +7,7 @@ import PrzeslaneBadania from './badania'; //import logger from './logger';
 import WgrajPlik from './upload'; 
 import EdytujProfil from './edit'; 
 import Landing from './landing';
+import './components.css';
 
 
 //import logger from './logger';
