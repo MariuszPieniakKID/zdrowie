@@ -3,15 +3,12 @@ import axios from 'axios';
 import { Chart, registerables } from 'chart.js';
 import 'chartjs-adapter-date-fns';
 import WykresWynikow from './wykres';
-import PrzeslaneBadania from './badania'; //import logger from './logger';
+import PrzeslaneBadania from './badania';
 import WgrajPlik from './upload'; 
 import EdytujProfil from './edit'; 
 import Landing from './landing';
 import './components.css';
-
-
-//import logger from './logger';
-import { FaSignOutAlt, FaUser, FaChartLine, FaFileAlt, FaHome, FaUpload } from 'react-icons/fa';
+import { FaSignOutAlt, FaUser, FaChartLine, FaFileAlt, FaHome, FaUpload, FaEye, FaSpinner } from 'react-icons/fa';
 
 Chart.register(...registerables);
 
@@ -118,8 +115,6 @@ function App() {
     }
   }, []);
 
-  
-
   useEffect(() => {
     const checkExistingAnalysis = async () => {
       try {
@@ -138,7 +133,6 @@ function App() {
     }
   }, [user, files.page, fetchFiles, fetchParameters]);
 
-
   useEffect(() => {
     if (view === 'chart') {
       generateChartData();
@@ -149,65 +143,63 @@ function App() {
   const isValidPhone = (phone) => /^(\+48)?\d{9}$/.test(sanitizePhone(phone));
 
   const handleLogin = async (e) => {
-  e.preventDefault();
-  setError('');
-  if (!isValidPhone(loginPhone)) {
-    setError('Podaj poprawny numer telefonu');
-    return;
-  }
-  setLoading(true);
-  try {
-    const res = await axios.post('https://zdrowie-backend.vercel.app/api/login', { phone: sanitizePhone(loginPhone) });
-    setUser(res.data.user);
-    setEditForm(res.data.user);
-    setView('main');
-    localStorage.setItem('user', JSON.stringify(res.data.user));
-    // CZYSZCZENIE STANU
-    setFiles({ documents: [], total: 0, page: 1, totalPages: 1 });
-    setParameters([]);
-    setSelectedParams([]);
-    setChartData({ labels: [], datasets: [] });
-    setSummary('');
-    setAnalysis('');
-    setSelectedDoc(null);
+    e.preventDefault();
     setError('');
-  } catch (err) {
-    setError(err.response?.data?.error || 'Błąd logowania');
-  } finally {
-    setLoading(false);
-  }
-};
+    if (!isValidPhone(loginPhone)) {
+      setError('Podaj poprawny numer telefonu');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await axios.post('https://zdrowie-backend.vercel.app/api/login', { phone: sanitizePhone(loginPhone) });
+      setUser(res.data.user);
+      setEditForm(res.data.user);
+      setView('main');
+      localStorage.setItem('user', JSON.stringify(res.data.user));
+      // CZYSZCZENIE STANU
+      setFiles({ documents: [], total: 0, page: 1, totalPages: 1 });
+      setParameters([]);
+      setSelectedParams([]);
+      setChartData({ labels: [], datasets: [] });
+      setSummary('');
+      setAnalysis('');
+      setSelectedDoc(null);
+      setError('');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Błąd logowania');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-
-const handleRegister = async (e) => {
-  e.preventDefault();
-  setError('');
-  if (!registerForm.name || !registerForm.email || !registerForm.phone) {
-    setError('Wypełnij wszystkie pola');
-    return;
-  }
-  if (!isValidPhone(registerForm.phone)) {
-    setError('Podaj poprawny numer telefonu');
-    return;
-  }
-  setLoading(true);
-  try {
-    await axios.post('https://zdrowie-backend.vercel.app/api/register', { ...registerForm, phone: sanitizePhone(registerForm.phone) });
-    setView('login');
-    setRegisterForm({ name: '', email: '', phone: '' });
-  } catch (err) {
-    setError(err.response?.data?.error || 'Błąd rejestracji');
-  } finally {
-    setLoading(false);
-  }
-};
-
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    setError('');
+    if (!registerForm.name || !registerForm.email || !registerForm.phone) {
+      setError('Wypełnij wszystkie pola');
+      return;
+    }
+    if (!isValidPhone(registerForm.phone)) {
+      setError('Podaj poprawny numer telefonu');
+      return;
+    }
+    setLoading(true);
+    try {
+      await axios.post('https://zdrowie-backend.vercel.app/api/register', { ...registerForm, phone: sanitizePhone(registerForm.phone) });
+      setView('login');
+      setRegisterForm({ name: '', email: '', phone: '' });
+    } catch (err) {
+      setError(err.response?.data?.error || 'Błąd rejestracji');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleEdit = async (e) => {
     e.preventDefault();
     setError('');
     if (!editForm.name || !editForm.email || !editForm.phone) {
-      setError('WypeĹnij wszystkie pola');
+      setError('Wypełnij wszystkie pola');
       return;
     }
     if (!isValidPhone(editForm.phone)) {
@@ -223,34 +215,33 @@ const handleRegister = async (e) => {
       setUser(prev => ({ ...prev, ...editForm }));
       setView('main');
       localStorage.setItem('user', JSON.stringify({ ...user, ...editForm }));
-
     } catch (err) {
       setError(err.response?.data?.error || 'Błąd edycji danych');
     } finally {
       setLoading(false);
     }
   };
-const handleDeleteUserData = async () => {
-  if (window.confirm('Czy na pewno chcesz Usunąć wszystkie swoje dane? Ta operacja jest nieodwracalna.')) {
-    setError('');
-    setLoading(true);
-    try {
-      await axios.delete(`https://zdrowie-backend.vercel.app/api/user-data/${user.id}`);
-      // OdĹwieĹźamy dane po usuniÄciu
-      setFiles({ documents: [], total: 0, page: 1, totalPages: 1 });
-      setParameters([]);
-      setSelectedParams([]);
-      setChartData({ labels: [], datasets: [] });
-      setSummary('');
-      setView('main');
-      alert('Dane zostały pomyślnie usunięte');
-    } catch (err) {
-      setError(err.response?.data?.error || 'Błąd usuwania danych');
-    } finally {
-      setLoading(false);
+
+  const handleDeleteUserData = async () => {
+    if (window.confirm('Czy na pewno chcesz usunąć wszystkie swoje dane? Ta operacja jest nieodwracalna.')) {
+      setError('');
+      setLoading(true);
+      try {
+        await axios.delete(`https://zdrowie-backend.vercel.app/api/user-data/${user.id}`);
+        setFiles({ documents: [], total: 0, page: 1, totalPages: 1 });
+        setParameters([]);
+        setSelectedParams([]);
+        setChartData({ labels: [], datasets: [] });
+        setSummary('');
+        setView('main');
+        alert('Dane zostały pomyślnie usunięte');
+      } catch (err) {
+        setError(err.response?.data?.error || 'Błąd usuwania danych');
+      } finally {
+        setLoading(false);
+      }
     }
-  }
-};
+  };
 
   const handleFileUpload = async (e) => {
     e.preventDefault();
@@ -278,8 +269,7 @@ const handleDeleteUserData = async () => {
       setSymptoms('');
       setChronicDiseases('');
       setMedications('');
-      setView('files'); // PrzejĹcie do sekcji "PrzesĹane badania" po wgraniu pliku
-
+      setView('files');
     } catch (err) {
       setError(err.response?.data?.error || 'Błąd przesyłania pliku');
     } finally {
@@ -302,7 +292,7 @@ const handleDeleteUserData = async () => {
       await fetchFiles();
       setView('analysis');
     } catch (err) {
-      setError(err.response?.data?.error || 'Błąda analizy pliku');
+      setError(err.response?.data?.error || 'Błąd analizy pliku');
     } finally {
       setLoadingAnalysis(null);
     }
@@ -372,748 +362,518 @@ const handleDeleteUserData = async () => {
     });
   };
 
-const handleLogout = () => {
-  setUser(null);
-  setShowLanding(true);
-  localStorage.removeItem('user');
-  setFiles({ documents: [], total: 0, page: 1, totalPages: 1 });
-  setParameters([]);
-  setSelectedParams([]);
-  setChartData({ labels: [], datasets: [] });
-  setSummary('');
-  setAnalysis('');
-  setSelectedDoc(null);
-  setError('');
-  window.location.reload();
-};
-
-
-  const styles = {
-    layout: {
-      display: 'flex',
-      flexDirection: 'column',
-      minHeight: '100vh',
-      backgroundColor: '#f9fafb',
-      fontFamily: 'Inter, system-ui, sans-serif',
-    },
-    appContainer: {
-      display: 'flex',
-      flexDirection: 'row',
-      flex: 1,
-      '@media (max-width: 768px)': {
-        flexDirection: 'column',
-      }
-    },
-    sidebar: {
-      width: '280px',
-      padding: '20px',
-      backgroundColor: '#f0f2f5',
-      borderRight: '1px solid #e5e7eb',
-      transition: 'all 0.3s ease',
-      overflow: 'auto',
-      height: '100vh',
-      position: 'sticky',
-      top: 0,
-      '@media (max-width: 768px)': {
-        width: '100%',
-        height: 'auto',
-        position: 'relative',
-        borderRight: 'none',
-        borderBottom: '1px solid #e5e7eb',
-      }
-    },
-    content: {
-      flex: 1,
-      padding: '30px',
-      backgroundColor: '#ffffff',
-      borderRadius: '16px',
-      margin: '20px',
-      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-      overflow: 'auto',
-      '@media (max-width: 768px)': {
-        margin: '10px',
-        padding: '20px',
-      }
-    },
-    header: {
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      padding: '15px 20px',
-      backgroundColor: '#ffffff',
-      borderBottom: '1px solid #e5e7eb',
-    },
-    headerTitle: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '10px',
-      fontSize: '18px',
-      fontWeight: '600',
-      color: '#111827',
-    },
-    headerActions: {
-      display: 'flex',
-      gap: '15px',
-    },
-    form: {
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '15px',
-      margin: '20px 0',
-      maxWidth: '400px',
-      width: '100%',
-    },
-    input: {
-      padding: '12px 16px',
-      borderRadius: '8px',
-      border: '1px solid #d1d5db',
-      fontSize: '16px',
-      backgroundColor: '#f9fafb',
-      transition: 'border-color 0.2s',
-      width: '100%',
-      boxSizing: 'border-box',
-      '&:focus': {
-        borderColor: '#6366f1',
-        outline: 'none',
-      }
-    },
-    button: {
-      padding: '12px 20px',
-      borderRadius: '8px',
-      border: 'none',
-      backgroundColor: '#6366f1',
-      color: 'white',
-      fontWeight: '500',
-      cursor: 'pointer',
-      transition: 'background-color 0.2s',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: '8px',
-      width: '100%',
-      boxSizing: 'border-box',
-      '&:hover': {
-        backgroundColor: '#4f46e5',
-      },
-      '&:disabled': {
-        backgroundColor: '#9ca3af',
-        cursor: 'not-allowed',
-      }
-    },
-    secondaryButton: {
-      backgroundColor: '#f3f4f6',
-      color: '#4b5563',
-      border: '1px solid #d1d5db',
-      '&:hover': {
-        backgroundColor: '#e5e7eb',
-      }
-    },
-    smallButton: {
-      padding: '8px 12px',
-      fontSize: '14px',
-      borderRadius: '6px',
-    },
-    iconButton: {
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '8px',
-      borderRadius: '8px',
-      backgroundColor: 'transparent',
-      color: '#6b7280',
-      cursor: 'pointer',
-      transition: 'background-color 0.2s',
-      '&:hover': {
-        backgroundColor: '#f3f4f6',
-      }
-    },
-    error: {
-      color: '#ef4444',
-      margin: '10px 0',
-      fontSize: '14px',
-    },
-    chartContainer: {
-      padding: '20px',
-      backgroundColor: 'white',
-      borderRadius: '12px',
-      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-      marginTop: '20px',
-    },
-    welcomeMessage: {
-      fontSize: '24px',
-      fontWeight: '600',
-      color: '#111827',
-      marginBottom: '20px',
-    },
-    welcomeContent: {
-      fontSize: '16px',
-      color: '#4b5563',
-      lineHeight: '1.6',
-      marginBottom: '30px',
-    },
-    navItem: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '12px',
-      padding: '12px 16px',
-      borderRadius: '8px',
-      color: '#4b5563',
-      fontSize: '14px',
-      fontWeight: '500',
-      cursor: 'pointer',
-      transition: 'background-color 0.2s',
-      '&:hover': {
-        backgroundColor: '#e5e7eb',
-      },
-      '&.active': {
-        backgroundColor: '#ede9fe',
-        color: '#6d28d9',
-      }
-    },
-    navIcon: {
-      fontSize: '18px',
-    },
-    logoutButton: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '8px',
-      padding: '10px 16px',
-      borderRadius: '8px',
-      backgroundColor: '#ef4444',
-      color: 'white',
-      fontWeight: '500',
-      cursor: 'pointer',
-      border: 'none',
-      transition: 'background-color 0.2s',
-      '&:hover': {
-        backgroundColor: '#dc2626',
-      }
-    },
-    mainBackground: {
-      backgroundImage: `url('${process.env.PUBLIC_URL}/tĹo.png')`,
-      backgroundSize: 'cover',
-      backgroundPosition: 'center',
-      backgroundRepeat: 'no-repeat',
-      position: 'relative',
-    },
-    mainOverlay: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(255, 255, 255, 0.85)',
-      zIndex: 1,
-    },
-    mainContent: {
-      position: 'relative',
-      zIndex: 2,
-    },
-    fileItem: {
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '10px',
-      padding: '16px',
-      margin: '12px 0',
-      border: '1px solid #e5e7eb',
-      borderRadius: '8px',
-      backgroundColor: '#f9fafb',
-      transition: 'transform 0.2s, box-shadow 0.2s',
-      '&:hover': {
-        transform: 'translateY(-2px)',
-        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-      }
-    },
-    fileHeader: {
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    fileName: {
-      fontWeight: '600',
-      fontSize: '14px',
-      color: '#111827',
-      whiteSpace: 'nowrap',
-      overflow: 'hidden',
-      textOverflow: 'ellipsis',
-    },
-    fileDate: {
-      fontSize: '12px',
-      color: '#6b7280',
-    },
-    fileActions: {
-      display: 'flex',
-      gap: '8px',
-      marginTop: '8px',
-    },
-    pagination: {
-      display: 'flex',
-      gap: '10px',
-      marginTop: '20px',
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    pageButton: {
-      padding: '8px 12px',
-      borderRadius: '6px',
-      border: '1px solid #d1d5db',
-      backgroundColor: '#ffffff',
-      color: '#4b5563',
-      cursor: 'pointer',
-      '&:hover': {
-        backgroundColor: '#f3f4f6',
-      },
-      '&.active': {
-        backgroundColor: '#ede9fe',
-        borderColor: '#a78bfa',
-        color: '#6d28d9',
-      },
-      '&:disabled': {
-        backgroundColor: '#f3f4f6',
-        color: '#9ca3af',
-        cursor: 'not-allowed',
-      }
-    },
-    uploadInput: {
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '30px',
-      border: '2px dashed #d1d5db',
-      borderRadius: '8px',
-      backgroundColor: '#ffffff',
-      cursor: 'pointer',
-      transition: 'border-color 0.2s',
-      '&:hover': {
-        borderColor: '#9ca3af',
-      }
-    },
-    uploadIcon: {
-      fontSize: '24px',
-      color: '#6b7280',
-      marginBottom: '12px',
-    },
-    uploadText: {
-      color: '#4b5563',
-      fontSize: '14px',
-      textAlign: 'center',
-    },
+  const handleLogout = () => {
+    setUser(null);
+    setShowLanding(true);
+    localStorage.removeItem('user');
+    setFiles({ documents: [], total: 0, page: 1, totalPages: 1 });
+    setParameters([]);
+    setSelectedParams([]);
+    setChartData({ labels: [], datasets: [] });
+    setSummary('');
+    setAnalysis('');
+    setSelectedDoc(null);
+    setError('');
+    window.location.reload();
   };
 
-  // Responsywne style z uĹźyciem media queries
-  const applyResponsiveStyles = (baseStyles) => {
-    const isMobile = window.innerWidth <= 768;
-    
-    return {
-      ...baseStyles,
-      sidebar: {
-        ...baseStyles.sidebar,
-        width: isMobile ? '100%' : '280px',
-        height: isMobile ? 'auto' : '100vh',
-        position: isMobile ? 'relative' : 'sticky',
-        borderRight: isMobile ? 'none' : '1px solid #e5e7eb',
-        borderBottom: isMobile ? '1px solid #e5e7eb' : 'none',
-      },
-      appContainer: {
-        ...baseStyles.appContainer,
-        flexDirection: isMobile ? 'column' : 'row',
-      },
-      content: {
-        ...baseStyles.content,
-        margin: isMobile ? '10px' : '20px',
-        padding: isMobile ? '20px' : '30px',
-      }
-    };
-  };
-
-  const responsiveStyles = applyResponsiveStyles(styles);
-if (showLanding && !user) {
-  return (
-    <Landing
-      onLoginClick={() => setShowLanding(false)}
-      onRegisterClick={() => {
-        setShowLanding(false);
-        setView('register');
-      }}
-    />
-  );
-}
-
-
-
- if (view === 'login') {
-  return (
-    <div style={{ 
-      display: 'flex', 
-      justifyContent: 'center', 
-      alignItems: 'center', 
-      minHeight: '100vh',
-      padding: '20px',
-      backgroundImage: `url('${process.env.PUBLIC_URL}/tlo.png')`,
-      backgroundSize: 'cover',
-      backgroundPosition: 'center',
-      backgroundRepeat: 'no-repeat',
-      position: 'relative'
-    }}>
-      <div style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(249, 250, 251, 0.8)',
-        zIndex: 1
-      }}></div>
-
-        <div style={{ 
-          maxWidth: '400px', 
-          width: '100%', 
-          backgroundColor: '#ffffff',
-          borderRadius: '12px',
-          padding: '30px',
-          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-          zIndex: 2,
-          position: 'relative'
-        }}>
-          <h2 style={{ 
-            textAlign: 'center', 
-            marginBottom: '24px',
-            color: '#111827',
-            fontSize: '24px',
-            fontWeight: '600'
-          }}>
-            Logowanie do aplikacji
-          </h2>
-          
-          <form onSubmit={handleLogin} style={styles.form}>
-            <div style={{ width: '100%' }}>
-              <label htmlFor="phone" style={{ 
-                display: 'block', 
-                marginBottom: '8px',
-                fontSize: '14px',
-                fontWeight: '500',
-                color: '#4b5563'
-              }}>
-                Numer telefonu
-              </label>
-              <input
-                id="phone"
-                type="text"
-                value={loginPhone}
-                onChange={(e) => setLoginPhone(e.target.value)}
-                placeholder="np. 123456789"
-                style={styles.input}
-                required
-              />
-            </div>
-            
-            <button 
-              type="submit" 
-              style={styles.button}
-              disabled={loading}
-            >
-              {loading ? 'Logowanie...' : 'Zaloguj się'}
-            </button>
-            
-            <div style={{ textAlign: 'center', marginTop: '16px' }}>
-              <span style={{ fontSize: '14px', color: '#6b7280' }}>
-                Nie masz konta?{' '}
-              </span>
-              <button
-                type="button"
-                onClick={() => setView('register')}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#6366f1',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                }}
-              >
-              Zarejestruj się</button>
-            </div>
-          </form>
-          
-          {error && <div style={styles.error}>{error}</div>}
-        </div>
-      </div>
-    );
-  }
-
-  if (view === 'register') {
+  // Modern Landing Page
+  if (showLanding && !user) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        minHeight: '100vh',
-        backgroundColor: '#f9fafb',
-        backgroundImage: `url('${process.env.PUBLIC_URL}/tlo.png')`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-        padding: '20px'
-      }}>
-        <div style={{ 
-          maxWidth: '400px', 
-          width: '100%', 
-          backgroundColor: '#ffffff',
-          borderRadius: '12px',
-          padding: '30px',
-          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
-        }}>
-          <h2 style={{ 
-            textAlign: 'center', 
-            marginBottom: '24px',
-            color: '#111827',
-            fontSize: '24px',
-            fontWeight: '600'
-          }}>
-            Rejestracja
-          </h2>
-          
-          <form onSubmit={handleRegister} style={styles.form}>
-            <div>
-              <label htmlFor="name" style={{ 
-                display: 'block', 
-                marginBottom: '8px',
-                fontSize: '14px',
-                fontWeight: '500',
-                color: '#4b5563'
-              }}>
-                Imię i nazwisko
-              </label>
-              <input
-                id="name"
-                type="text"
-                value={registerForm.name}
-                onChange={(e) => setRegisterForm({...registerForm, name: e.target.value})}
-                placeholder="Jan Kowalski"
-                style={styles.input}
-                required
-              />
-            </div>
-            
-            <div>
-              <label htmlFor="email" style={{ 
-                display: 'block', 
-                marginBottom: '8px',
-                fontSize: '14px',
-                fontWeight: '500',
-                color: '#4b5563'
-              }}>
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={registerForm.email}
-                onChange={(e) => setRegisterForm({...registerForm, email: e.target.value})}
-                placeholder="jan@example.com"
-                style={styles.input}
-                required
-              />
-            </div>
-            
-            <div>
-              <label htmlFor="reg-phone" style={{ 
-                display: 'block', 
-                marginBottom: '8px',
-                fontSize: '14px',
-                fontWeight: '500',
-                color: '#4b5563'
-              }}>
-                Numer telefonu
-              </label>
-              <input
-                id="reg-phone"
-                type="text"
-                value={registerForm.phone}
-                onChange={(e) => setRegisterForm({...registerForm, phone: e.target.value})}
-                placeholder="np. 123456789"
-                style={styles.input}
-                required
-              />
-            </div>
-            
-            <button 
-              type="submit" 
-              style={styles.button}
-              disabled={loading}
-            >
-              {loading ? 'Rejestracja...' : 'Zarejestruj się'}
-            </button>
-            
-            <div style={{ textAlign: 'center', marginTop: '16px' }}>
-              <span style={{ fontSize: '14px', color: '#6b7280' }}>
-                Masz już konto?{' '}
-              </span>
-              <button
-                type="button"
-                onClick={() => setView('login')}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#6366f1',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                }}
-              >
-                Zaloguj się
-              </button>
-            </div>
-          </form>
-          
-          {error && <div style={styles.error}>{error}</div>}
-        </div>
-      </div>
+      <Landing
+        onLoginClick={() => setShowLanding(false)}
+        onRegisterClick={() => {
+          setShowLanding(false);
+          setView('register');
+        }}
+      />
     );
   }
 
-  return (
-    <div style={responsiveStyles.layout}>
-      <div style={responsiveStyles.header}>
-        <div style={styles.headerTitle}>
-          <FaUser style={{ color: '#6366f1' }} />
-          <span>Witaj, {user?.name || 'Uzytkowniku'}</span>
+  // Modern Login Page
+  if (view === 'login') {
+    return (
+      <div className="modern-container">
+        <div className="bg-particles">
+          <div className="particle"></div>
+          <div className="particle"></div>
+          <div className="particle"></div>
         </div>
-        <div style={styles.headerActions}>
-          <button 
-            onClick={handleLogout} 
-            style={{
-              ...styles.button,
-              ...styles.smallButton,
-              backgroundColor: '#ef4444',
-              width: 'auto'
-            }}
-          >
-            <FaSignOutAlt /> Wyloguj
-          </button>
-        </div>
-      </div>
-      
-      <div style={responsiveStyles.appContainer}>
-        <div style={responsiveStyles.sidebar}>
-          <div style={{ marginBottom: '24px' }}>
-            <div 
-              style={{
-                ...styles.navItem,
-                ...(view === 'main' ? { backgroundColor: '#ede9fe', color: '#6d28d9' } : {})
-              }}
-              onClick={() => setView('main')}
-            >
-              <FaHome style={styles.navIcon} />
-              <span>Strona główna</span>
+
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          minHeight: '100vh',
+          padding: '2rem'
+        }}>
+          <div className="modern-card" style={{ maxWidth: '400px', width: '100%' }}>
+            <div className="modern-page-header" style={{ marginBottom: '2rem' }}>
+              <h2 className="modern-page-title" style={{ fontSize: '2rem' }}>
+                Logowanie
+              </h2>
+              <p className="modern-page-subtitle">
+                Zaloguj się do swojego konta medycznego
+              </p>
             </div>
             
-            <div 
-              style={{
-                ...styles.navItem,
-                ...(view === 'chart' ? { backgroundColor: '#ede9fe', color: '#6d28d9' } : {})
-              }}
-              onClick={() => setView('chart')}
-            >
-              <FaChartLine style={styles.navIcon} />
-              <span>Podsumowanie badań</span>
-            </div>
+            <form onSubmit={handleLogin} className="modern-form">
+              <div className="modern-form-group">
+                <label className="modern-label">
+                  <FaUser style={{ marginRight: '0.5rem', color: 'var(--accent-blue)' }} />
+                  Numer telefonu
+                </label>
+                <input
+                  type="text"
+                  value={loginPhone}
+                  onChange={(e) => setLoginPhone(e.target.value)}
+                  placeholder="123456789"
+                  className="modern-input"
+                  required
+                />
+              </div>
+              
+              <button 
+                type="submit" 
+                className="modern-btn"
+                disabled={loading}
+              >
+                {loading ? (
+                  <div className="modern-loading">
+                    <div className="modern-spinner"></div>
+                    Logowanie...
+                  </div>
+                ) : (
+                  <>
+                    <FaUser />
+                    Zaloguj się
+                  </>
+                )}
+              </button>
+              
+              <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+                <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                  Nie masz konta?{' '}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setView('register')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--accent-blue)',
+                    cursor: 'pointer',
+                    fontSize: '0.875rem',
+                    fontWeight: '600',
+                  }}
+                >
+                  Zarejestruj się
+                </button>
+              </div>
+            </form>
             
-            <div 
-              style={{
-                ...styles.navItem,
-                ...(view === 'files' ? { backgroundColor: '#ede9fe', color: '#6d28d9' } : {})
-              }}
-              onClick={() => setView('files')}
-            >
-              <FaFileAlt style={styles.navIcon} />
-              <span>Przesłane badania</span>
-            </div>
-            
-            <div 
-              style={{
-                ...styles.navItem,
-                ...(view === 'upload' ? { backgroundColor: '#ede9fe', color: '#6d28d9' } : {})
-              }}
-              onClick={() => setView('upload')}
-            >
-              <FaUpload style={styles.navIcon} />
-              <span>Wgraj nowy plik</span>
-            </div>
-            
-            <div 
-              style={{
-                ...styles.navItem,
-                ...(view === 'edit' ? { backgroundColor: '#ede9fe', color: '#6d28d9' } : {})
-              }}
-              onClick={() => setView('edit')}
-            >
-              <FaUser style={styles.navIcon} />
-              <span>Edytuj profil</span>
-            </div>
+            {error && <div className="modern-error">{error}</div>}
           </div>
         </div>
-        
-        <div style={responsiveStyles.content}>
-          {view === 'main' && (
-            <div style={styles.mainBackground}>
-              <div style={styles.mainOverlay}></div>
-              <div style={styles.mainContent}>
-                <h1 style={styles.welcomeMessage}>Witaj w aplikacji AI analizującej Twoje wyniki krwi</h1>
-                <p style={styles.welcomeContent}>
-                  Wgrywaj wyniki i analizuj. Nasza aplikacja pomoze Ci zrozumieć Twoje badania krwi oraz zmiany parametrów w czasie. Wgraj swoje wyniki w formacie PDF,
-                  a sztuczna inteligencja automatycznie je przeanalizuje.
-                </p>
-                
-                {summary && (
-                  <div style={styles.chartContainer}>
-                    <h2 style={{ 
-                      fontSize: '18px', 
-                      fontWeight: '600', 
-                      color: '#111827',
-                      marginBottom: '16px'
-                    }}>
-                      Twoja ostatnia analiza
-                    </h2>
-                    <div dangerouslySetInnerHTML={{ __html: summary }} />
-                  </div>
-                )}
-                
-                {error && <div style={styles.error}>{error}</div>}
+      </div>
+    );
+  }
+
+  // Modern Register Page
+  if (view === 'register') {
+    return (
+      <div className="modern-container">
+        <div className="bg-particles">
+          <div className="particle"></div>
+          <div className="particle"></div>
+          <div className="particle"></div>
+        </div>
+
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          minHeight: '100vh',
+          padding: '2rem'
+        }}>
+          <div className="modern-card" style={{ maxWidth: '400px', width: '100%' }}>
+            <div className="modern-page-header" style={{ marginBottom: '2rem' }}>
+              <h2 className="modern-page-title" style={{ fontSize: '2rem' }}>
+                Rejestracja
+              </h2>
+              <p className="modern-page-subtitle">
+                Stwórz nowe konto w systemie medycznym
+              </p>
+            </div>
+            
+            <form onSubmit={handleRegister} className="modern-form">
+              <div className="modern-form-group">
+                <label className="modern-label">
+                  <FaUser style={{ marginRight: '0.5rem', color: 'var(--accent-blue)' }} />
+                  Imię i nazwisko
+                </label>
+                <input
+                  type="text"
+                  value={registerForm.name}
+                  onChange={(e) => setRegisterForm({...registerForm, name: e.target.value})}
+                  placeholder="Jan Kowalski"
+                  className="modern-input"
+                  required
+                />
               </div>
+              
+              <div className="modern-form-group">
+                <label className="modern-label">
+                  <FaUser style={{ marginRight: '0.5rem', color: 'var(--accent-green)' }} />
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={registerForm.email}
+                  onChange={(e) => setRegisterForm({...registerForm, email: e.target.value})}
+                  placeholder="jan@example.com"
+                  className="modern-input"
+                  required
+                />
+              </div>
+              
+              <div className="modern-form-group">
+                <label className="modern-label">
+                  <FaUser style={{ marginRight: '0.5rem', color: 'var(--accent-orange)' }} />
+                  Numer telefonu
+                </label>
+                <input
+                  type="text"
+                  value={registerForm.phone}
+                  onChange={(e) => setRegisterForm({...registerForm, phone: e.target.value})}
+                  placeholder="123456789"
+                  className="modern-input"
+                  required
+                />
+              </div>
+              
+              <button 
+                type="submit" 
+                className="modern-btn"
+                disabled={loading}
+              >
+                {loading ? (
+                  <div className="modern-loading">
+                    <div className="modern-spinner"></div>
+                    Rejestracja...
+                  </div>
+                ) : (
+                  <>
+                    <FaUser />
+                    Zarejestruj się
+                  </>
+                )}
+              </button>
+              
+              <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+                <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                  Masz już konto?{' '}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setView('login')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--accent-blue)',
+                    cursor: 'pointer',
+                    fontSize: '0.875rem',
+                    fontWeight: '600',
+                  }}
+                >
+                  Zaloguj się
+                </button>
+              </div>
+            </form>
+            
+            {error && <div className="modern-error">{error}</div>}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Modern Main Application
+  return (
+    <div className="modern-container">
+      <div className="bg-particles">
+        <div className="particle"></div>
+        <div className="particle"></div>
+        <div className="particle"></div>
+      </div>
+
+      {/* Modern Header */}
+      <header style={{
+        position: 'sticky',
+        top: 0,
+        zIndex: 100,
+        background: 'var(--bg-glass)',
+        backdropFilter: 'blur(20px)',
+        borderBottom: '1px solid var(--border-color)',
+        padding: '1rem 2rem'
+      }}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          maxWidth: '1400px',
+          margin: '0 auto'
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '1rem'
+          }}>
+            <div style={{
+              width: '40px',
+              height: '40px',
+              background: 'var(--primary-gradient)',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'white',
+              fontSize: '1.25rem'
+            }}>
+              <FaUser />
+            </div>
+            <div>
+              <h1 style={{
+                color: 'var(--text-primary)',
+                fontSize: '1.125rem',
+                fontWeight: '600',
+                margin: 0
+              }}>
+                Witaj, {user?.name || 'Użytkowniku'}
+              </h1>
+              <p style={{
+                color: 'var(--text-muted)',
+                fontSize: '0.875rem',
+                margin: 0
+              }}>
+                Panel medyczny
+              </p>
+            </div>
+          </div>
+
+          <button 
+            onClick={handleLogout} 
+            className="modern-btn modern-btn-danger modern-btn-small"
+          >
+            <FaSignOutAlt />
+            Wyloguj
+          </button>
+        </div>
+      </header>
+
+      <div style={{
+        display: 'flex',
+        maxWidth: '1400px',
+        margin: '0 auto',
+        minHeight: 'calc(100vh - 80px)'
+      }}>
+        {/* Modern Sidebar */}
+        <nav style={{
+          width: '280px',
+          padding: '2rem',
+          background: 'var(--bg-glass)',
+          backdropFilter: 'blur(20px)',
+          borderRight: '1px solid var(--border-color)',
+          height: 'fit-content',
+          position: 'sticky',
+          top: '100px'
+        }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <button
+              onClick={() => setView('main')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.75rem',
+                padding: '1rem',
+                background: view === 'main' ? 'var(--accent-blue)' : 'transparent',
+                color: view === 'main' ? 'white' : 'var(--text-secondary)',
+                border: 'none',
+                borderRadius: '12px',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                fontSize: '0.875rem',
+                fontWeight: '500',
+                width: '100%',
+                textAlign: 'left'
+              }}
+            >
+              <FaHome />
+              Strona główna
+            </button>
+            
+            <button
+              onClick={() => setView('chart')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.75rem',
+                padding: '1rem',
+                background: view === 'chart' ? 'var(--accent-blue)' : 'transparent',
+                color: view === 'chart' ? 'white' : 'var(--text-secondary)',
+                border: 'none',
+                borderRadius: '12px',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                fontSize: '0.875rem',
+                fontWeight: '500',
+                width: '100%',
+                textAlign: 'left'
+              }}
+            >
+              <FaChartLine />
+              Podsumowanie badań
+            </button>
+            
+            <button
+              onClick={() => setView('files')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.75rem',
+                padding: '1rem',
+                background: view === 'files' ? 'var(--accent-blue)' : 'transparent',
+                color: view === 'files' ? 'white' : 'var(--text-secondary)',
+                border: 'none',
+                borderRadius: '12px',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                fontSize: '0.875rem',
+                fontWeight: '500',
+                width: '100%',
+                textAlign: 'left'
+              }}
+            >
+              <FaFileAlt />
+              Przesłane badania
+            </button>
+            
+            <button
+              onClick={() => setView('upload')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.75rem',
+                padding: '1rem',
+                background: view === 'upload' ? 'var(--accent-blue)' : 'transparent',
+                color: view === 'upload' ? 'white' : 'var(--text-secondary)',
+                border: 'none',
+                borderRadius: '12px',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                fontSize: '0.875rem',
+                fontWeight: '500',
+                width: '100%',
+                textAlign: 'left'
+              }}
+            >
+              <FaUpload />
+              Wgraj nowy plik
+            </button>
+            
+            <button
+              onClick={() => setView('edit')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.75rem',
+                padding: '1rem',
+                background: view === 'edit' ? 'var(--accent-blue)' : 'transparent',
+                color: view === 'edit' ? 'white' : 'var(--text-secondary)',
+                border: 'none',
+                borderRadius: '12px',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                fontSize: '0.875rem',
+                fontWeight: '500',
+                width: '100%',
+                textAlign: 'left'
+              }}
+            >
+              <FaUser />
+              Edytuj profil
+            </button>
+          </div>
+        </nav>
+        
+        {/* Modern Content Area */}
+        <main style={{ flex: 1, padding: '2rem' }}>
+          {view === 'main' && (
+            <div className="modern-card">
+              <div className="modern-page-header">
+                <h1 className="modern-page-title">
+                  Panel główny
+                </h1>
+                <p className="modern-page-subtitle">
+                  Witaj w aplikacji AI analizującej Twoje wyniki badań medycznych. 
+                  Wgraj swoje wyniki w formacie PDF, a sztuczna inteligencja automatycznie je przeanalizuje.
+                </p>
+              </div>
+              
+              {summary && (
+                <div className="modern-card modern-card-small" style={{ marginTop: '2rem' }}>
+                  <h3 style={{
+                    color: 'var(--text-primary)',
+                    marginBottom: '1rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem'
+                  }}>
+                    <FaEye style={{ color: 'var(--accent-green)' }} />
+                    Twoja ostatnia analiza
+                  </h3>
+                  <div 
+                    className="modern-analysis-content"
+                    dangerouslySetInnerHTML={{ __html: summary }} 
+                  />
+                </div>
+              )}
+              
+              {error && <div className="modern-error">{error}</div>}
             </div>
           )}
           
           {view === 'analysis' && selectedDoc && (
-            <>
-              <h1 style={{ 
-                fontSize: '24px', 
-                fontWeight: '600', 
-                color: '#111827',
-                marginBottom: '20px'
-              }}>
-                Analiza pliku: {selectedDoc.filename}
-              </h1>
-              
-              <div style={styles.chartContainer}>
-                <div dangerouslySetInnerHTML={{ __html: analysis }} />
+            <div className="modern-card">
+              <div className="modern-page-header">
+                <h1 className="modern-page-title">
+                  Analiza badania
+                </h1>
+                <p className="modern-page-subtitle">
+                  Szczegółowa analiza pliku: {selectedDoc.filename}
+                </p>
               </div>
+              
+              <div 
+                className="modern-analysis-content"
+                dangerouslySetInnerHTML={{ __html: analysis }} 
+                style={{
+                  background: 'var(--bg-glass)',
+                  borderRadius: '12px',
+                  padding: '2rem',
+                  marginBottom: '2rem'
+                }}
+              />
               
               <button
                 onClick={() => setView('files')}
-                style={{
-                  ...styles.button,
-                  ...styles.secondaryButton,
-                  marginTop: '20px',
-                  width: 'auto'
-                }}
+                className="modern-btn modern-btn-secondary"
               >
-                Powrót
+                ← Powrót do badań
               </button>
               
-              {error && <div style={styles.error}>{error}</div>}
-            </>
+              {error && <div className="modern-error">{error}</div>}
+            </div>
           )}
           
           {view === 'chart' && (
@@ -1121,7 +881,6 @@ if (showLanding && !user) {
               parameters={parameters}
               selectedParams={selectedParams}
               chartData={chartData}
-              styles={styles}
               handleParamToggle={handleParamToggle}
               handleSummarize={handleSummarize}
               summary={summary}
@@ -1132,53 +891,44 @@ if (showLanding && !user) {
           )}
           
           {view === 'files' && (
-  <PrzeslaneBadania 
-    files={files}
-    loadingAnalysis={loadingAnalysis}
-    handleAnalyze={handleAnalyze}
-    handleShowAnalysis={handleShowAnalysis}
-    handleDelete={handleDelete}
-    formatDate={formatDate}
-    styles={styles}
-    setFiles={setFiles}
-  />
-)}
-
-
+            <PrzeslaneBadania 
+              files={files}
+              loadingAnalysis={loadingAnalysis}
+              handleAnalyze={handleAnalyze}
+              handleShowAnalysis={handleShowAnalysis}
+              handleDelete={handleDelete}
+              formatDate={formatDate}
+              setFiles={setFiles}
+            />
+          )}
           
-         {view === 'upload' && (
-  <WgrajPlik
-    handleFileUpload={handleFileUpload}
-    selectedFile={selectedFile}
-    setSelectedFile={setSelectedFile}
-    symptoms={symptoms}
-    setSymptoms={setSymptoms}
-    chronicDiseases={chronicDiseases}
-    setChronicDiseases={setChronicDiseases}
-    medications={medications}
-    setMedications={setMedications}
-    loading={loading}
-    styles={styles}
-    responsiveStyles={responsiveStyles}
-  />
-)}
-
+          {view === 'upload' && (
+            <WgrajPlik
+              handleFileUpload={handleFileUpload}
+              selectedFile={selectedFile}
+              setSelectedFile={setSelectedFile}
+              symptoms={symptoms}
+              setSymptoms={setSymptoms}
+              chronicDiseases={chronicDiseases}
+              setChronicDiseases={setChronicDiseases}
+              medications={medications}
+              setMedications={setMedications}
+              loading={loading}
+            />
+          )}
           
           {view === 'edit' && (
-  <EdytujProfil
-    editForm={editForm}
-    setEditForm={setEditForm}
-    handleEdit={handleEdit}
-    handleDeleteUserData={handleDeleteUserData}
-    setView={setView}
-    loading={loading}
-    error={error}
-    styles={styles}
-    responsiveStyles={responsiveStyles}
-  />
-)}
-
-        </div>
+            <EdytujProfil
+              editForm={editForm}
+              setEditForm={setEditForm}
+              handleEdit={handleEdit}
+              handleDeleteUserData={handleDeleteUserData}
+              setView={setView}
+              loading={loading}
+              error={error}
+            />
+          )}
+        </main>
       </div>
     </div>
   );
