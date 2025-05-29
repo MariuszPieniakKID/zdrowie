@@ -10,6 +10,14 @@
 .pnp.js
 /backend/node_modules
 
+# cache i temporary files
+/.cache
+**/node_modules/.cache
+**/.cache
+**/build/static
+**/.webpack_cache
+**/package-lock.json
+
 # testing
 /coverage
 
@@ -33,3 +41,7 @@ yarn-error.log*
 
 # Vercel
 .vercel
+
+# Local uploads
+/backend/uploads
+/tmp
