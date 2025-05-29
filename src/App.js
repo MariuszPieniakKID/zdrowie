@@ -8,7 +8,7 @@ import WgrajPlik from './upload';
 import EdytujProfil from './edit'; 
 import Landing from './landing';
 import './components.css';
-import { FaSignOutAlt, FaUser, FaChartLine, FaFileAlt, FaHome, FaUpload, FaEye, FaSpinner } from 'react-icons/fa';
+import { FaSignOutAlt, FaUser, FaChartLine, FaFileAlt, FaHome, FaUpload, FaEye } from 'react-icons/fa';
 
 Chart.register(...registerables);
 
