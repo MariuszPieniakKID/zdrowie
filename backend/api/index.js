@@ -12,8 +12,6 @@ const cheerio = require('cheerio');
 const fetch = require('node-fetch');
 const pdfParse = require('pdf-parse');
 const Tesseract = require('tesseract.js');
-const pdf = require('pdf-poppler');
-const sharp = require('sharp');
 
 const app = express();
 
@@ -106,7 +104,7 @@ const sanitizePhone = (phone) => phone.replace(/[-\s]/g, '');
 
 // ============ NOWE FUNKCJE OCR BEZ GOOGLE CLOUD =================
 
-// 🚀 NOWOŚĆ: GPT-4 Vision - bezpośrednia analiza obrazów/PDF-ów
+// 🚀 NOWOŚĆ: GPT-4 Vision - bezpośrednia analiza obrazów (bez PDF support na Vercel)
 async function analyzeFileWithGPT4Vision(filePath, symptoms, chronic_diseases, medications) {
   try {
     console.log('🤖 Próbuję GPT-4 Vision...');
@@ -121,52 +119,15 @@ async function analyzeFileWithGPT4Vision(filePath, symptoms, chronic_diseases, m
     const fileExtension = path.extname(filePath).toLowerCase();
     
     if (fileExtension === '.pdf') {
-      console.log('📄 Konwertuję PDF na obrazy...');
-      
-      // Konwertuj PDF na obrazy
-      const outputDir = path.join(path.dirname(filePath), 'temp_images');
-      if (!fs.existsSync(outputDir)) {
-        fs.mkdirSync(outputDir, { recursive: true });
-      }
-      
-      const options = {
-        format: 'jpeg',
-        out_dir: outputDir,
-        out_prefix: 'page',
-        page: null // wszystkie strony
-      };
-      
-      const pdfData = await pdf.convert(filePath, options);
-      console.log(`📄 Skonwertowano ${pdfData.length} stron PDF`);
-      
-      // Czytaj każdą stronę jako base64
-      for (let i = 1; i <= pdfData.length; i++) {
-        const imagePath = path.join(outputDir, `page-${i}.jpg`);
-        if (fs.existsSync(imagePath)) {
-          // Zmniejsz rozmiar obrazu dla OpenAI (max 20MB, zalecane: < 2MB)
-          const optimizedBuffer = await sharp(imagePath)
-            .resize(1500, null, { withoutEnlargement: true, fit: 'inside' })
-            .jpeg({ quality: 85 })
-            .toBuffer();
-          
-          const base64 = optimizedBuffer.toString('base64');
-          base64Images.push(base64);
-        }
-      }
-      
-      // Sprzątanie
-      fs.rmSync(outputDir, { recursive: true, force: true });
+      // Na Vercel nie obsługujemy PDF-ów z GPT-4 Vision (brak pdf-poppler)
+      throw new Error('PDF-to-image conversion nie jest dostępny na Vercel - użyj innych metod OCR');
       
     } else if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(fileExtension)) {
       console.log('🖼️ Przetwarzam obraz...');
       
-      // Bezpośrednio obraz
-      const optimizedBuffer = await sharp(filePath)
-        .resize(1500, null, { withoutEnlargement: true, fit: 'inside' })
-        .jpeg({ quality: 85 })
-        .toBuffer();
-      
-      const base64 = optimizedBuffer.toString('base64');
+      // Bezpośrednio obraz - czytaj jako base64 bez konwersji
+      const imageBuffer = fs.readFileSync(filePath);
+      const base64 = imageBuffer.toString('base64');
       base64Images.push(base64);
     } else {
       throw new Error(`Nieobsługiwany format pliku: ${fileExtension}`);
@@ -207,10 +168,16 @@ Przeanalizuj dokładnie każdy element na obrazach.`
 
     // Dodaj wszystkie obrazy
     base64Images.forEach((base64, index) => {
+      // Wykryj typ obrazu na podstawie pierwszych bajtów
+      let mimeType = 'image/jpeg';
+      if (base64.startsWith('/9j/')) mimeType = 'image/jpeg';
+      else if (base64.startsWith('iVBORw0KGgo')) mimeType = 'image/png';
+      else if (base64.startsWith('R0lGODlh')) mimeType = 'image/gif';
+      
       content.push({
         type: "image_url",
         image_url: {
-          url: `data:image/jpeg;base64,${base64}`,
+          url: `data:${mimeType};base64,${base64}`,
           detail: "high" // wysoka jakość analizy
         }
       });
@@ -234,7 +201,7 @@ Przeanalizuj dokładnie każdy element na obrazach.`
     return { 
       success: true, 
       analysis: analysis,
-      method: 'GPT-4 Vision',
+      method: 'GPT-4 Vision (obrazy)',
       images_processed: base64Images.length
     };
 
