@@ -8,7 +8,7 @@ import WgrajPlik from './upload';
 import EdytujProfil from './edit'; 
 import Landing from './landing';
 import './components.css';
-import { FaSignOutAlt, FaUser, FaChartLine, FaFileAlt, FaHome, FaUpload, FaEye } from 'react-icons/fa';
+import { FaSignOutAlt, FaUser, FaChartLine, FaFileAlt, FaHome, FaUpload, FaEye, FaMobileAlt, FaKey } from 'react-icons/fa';
 
 Chart.register(...registerables);
 
@@ -16,6 +16,10 @@ function App() {
   const [view, setView] = useState('login');
   const [user, setUser] = useState(null);
   const [loginPhone, setLoginPhone] = useState('');
+  const [smsCode, setSmsCode] = useState('');
+  const [awaitingSmsCode, setAwaitingSmsCode] = useState(false);
+  const [smsCodeId, setSmsCodeId] = useState(null);
+  const [resendTimer, setResendTimer] = useState(0);
   const [registerForm, setRegisterForm] = useState({
     name: '',
     email: '',
@@ -142,6 +146,8 @@ function App() {
   const sanitizePhone = (phone) => phone.replace(/[\s-]/g, '');
   const isValidPhone = (phone) => /^(\+48)?\d{9}$/.test(sanitizePhone(phone));
 
+  // STARY SYSTEM LOGOWANIA - ZAKOMENTOWANY
+  /*
   const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
@@ -170,6 +176,87 @@ function App() {
     } finally {
       setLoading(false);
     }
+  };
+  */
+
+  // NOWY SYSTEM LOGOWANIA Z KODEM SMS
+  useEffect(() => {
+    let interval;
+    if (resendTimer > 0) {
+      interval = setInterval(() => {
+        setResendTimer(prev => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [resendTimer]);
+
+  const handleSendSmsCode = async (e) => {
+    e.preventDefault();
+    setError('');
+    if (!isValidPhone(loginPhone)) {
+      setError('Podaj poprawny numer telefonu');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await axios.post('https://zdrowie-backend.vercel.app/api/send-sms-code', { 
+        phone: sanitizePhone(loginPhone) 
+      });
+      setSmsCodeId(res.data.codeId);
+      setAwaitingSmsCode(true);
+      setResendTimer(60); // 60 sekund do ponownego wysłania
+      setSmsCode('');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Błąd wysyłania kodu SMS');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifySmsCode = async (e) => {
+    e.preventDefault();
+    setError('');
+    if (!smsCode || smsCode.length !== 4) {
+      setError('Podaj 4-cyfrowy kod SMS');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await axios.post('https://zdrowie-backend.vercel.app/api/verify-sms-code', {
+        phone: sanitizePhone(loginPhone),
+        code: smsCode,
+        codeId: smsCodeId
+      });
+      setUser(res.data.user);
+      setEditForm(res.data.user);
+      setView('main');
+      localStorage.setItem('user', JSON.stringify(res.data.user));
+      // CZYSZCZENIE STANU
+      setFiles({ documents: [], total: 0, page: 1, totalPages: 1 });
+      setParameters([]);
+      setSelectedParams([]);
+      setChartData({ labels: [], datasets: [] });
+      setSummary('');
+      setAnalysis('');
+      setSelectedDoc(null);
+      setError('');
+      setAwaitingSmsCode(false);
+      setSmsCodeId(null);
+      setSmsCode('');
+      setLoginPhone('');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Błąd weryfikacji kodu SMS');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBackToPhone = () => {
+    setAwaitingSmsCode(false);
+    setSmsCodeId(null);
+    setSmsCode('');
+    setResendTimer(0);
+    setError('');
   };
 
   const handleRegister = async (e) => {
@@ -374,6 +461,12 @@ function App() {
     setAnalysis('');
     setSelectedDoc(null);
     setError('');
+    // Reset SMS login states
+    setLoginPhone('');
+    setSmsCode('');
+    setAwaitingSmsCode(false);
+    setSmsCodeId(null);
+    setResendTimer(0);
     window.location.reload();
   };
 
@@ -408,69 +501,173 @@ function App() {
           padding: '2rem'
         }}>
           <div className="modern-card" style={{ maxWidth: '400px', width: '100%' }}>
-            <div className="modern-page-header" style={{ marginBottom: '2rem' }}>
-              <h2 className="modern-page-title" style={{ fontSize: '2rem' }}>
-                Logowanie
-              </h2>
-              <p className="modern-page-subtitle">
-                Zaloguj się do swojego konta medycznego
-              </p>
-            </div>
-            
-            <form onSubmit={handleLogin} className="modern-form">
-              <div className="modern-form-group">
-                <label className="modern-label">
-                  <FaUser style={{ marginRight: '0.5rem', color: 'var(--accent-blue)' }} />
-                  Numer telefonu
-                </label>
-                <input
-                  type="text"
-                  value={loginPhone}
-                  onChange={(e) => setLoginPhone(e.target.value)}
-                  placeholder="123456789"
-                  className="modern-input"
-                  required
-                />
-              </div>
-              
-              <button 
-                type="submit" 
-                className="modern-btn"
-                disabled={loading}
-              >
-                {loading ? (
-                  <div className="modern-loading">
-                    <div className="modern-spinner"></div>
-                    Logowanie...
+            {!awaitingSmsCode ? (
+              <>
+                <div className="modern-page-header" style={{ marginBottom: '2rem' }}>
+                  <h2 className="modern-page-title" style={{ fontSize: '2rem' }}>
+                    Logowanie
+                  </h2>
+                  <p className="modern-page-subtitle">
+                    Podaj numer telefonu aby otrzymać kod SMS
+                  </p>
+                </div>
+                
+                <form onSubmit={handleSendSmsCode} className="modern-form">
+                  <div className="modern-form-group">
+                    <label className="modern-label">
+                      <FaMobileAlt style={{ marginRight: '0.5rem', color: 'var(--accent-blue)' }} />
+                      Numer telefonu
+                    </label>
+                    <input
+                      type="text"
+                      value={loginPhone}
+                      onChange={(e) => setLoginPhone(e.target.value)}
+                      placeholder="123456789"
+                      className="modern-input"
+                      required
+                      disabled={loading}
+                    />
                   </div>
-                ) : (
-                  <>
-                    <FaUser />
-                    Zaloguj się
-                  </>
-                )}
-              </button>
-              
-              <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-                <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-                  Nie masz konta?{' '}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setView('register')}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--accent-blue)',
-                    cursor: 'pointer',
-                    fontSize: '0.875rem',
-                    fontWeight: '600',
-                  }}
-                >
-                  Zarejestruj się
-                </button>
-              </div>
-            </form>
+                  
+                  <button 
+                    type="submit" 
+                    className="modern-btn"
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <div className="modern-loading">
+                        <div className="modern-spinner"></div>
+                        Wysyłanie kodu SMS...
+                      </div>
+                    ) : (
+                      <>
+                        <FaMobileAlt />
+                        Wyślij kod SMS
+                      </>
+                    )}
+                  </button>
+                  
+                  <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+                    <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                      Nie masz konta?{' '}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setView('register')}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--accent-blue)',
+                        cursor: 'pointer',
+                        fontSize: '0.875rem',
+                        fontWeight: '600',
+                      }}
+                    >
+                      Zarejestruj się
+                    </button>
+                  </div>
+                </form>
+              </>
+            ) : (
+              <>
+                <div className="modern-page-header" style={{ marginBottom: '2rem' }}>
+                  <h2 className="modern-page-title" style={{ fontSize: '2rem' }}>
+                    Wprowadź kod SMS
+                  </h2>
+                  <p className="modern-page-subtitle">
+                    Kod został wysłany na numer: {loginPhone}
+                  </p>
+                </div>
+                
+                <form onSubmit={handleVerifySmsCode} className="modern-form">
+                  <div className="modern-form-group">
+                    <label className="modern-label">
+                      <FaKey style={{ marginRight: '0.5rem', color: 'var(--accent-green)' }} />
+                      Kod SMS (4 cyfry)
+                    </label>
+                    <input
+                      type="text"
+                      value={smsCode}
+                      onChange={(e) => setSmsCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))}
+                      placeholder="0000"
+                      className="modern-input"
+                      style={{ 
+                        textAlign: 'center', 
+                        fontSize: '1.5rem', 
+                        letterSpacing: '0.5rem',
+                        fontWeight: 'bold'
+                      }}
+                      maxLength="4"
+                      required
+                      disabled={loading}
+                      autoFocus
+                    />
+                  </div>
+                  
+                  <button 
+                    type="submit" 
+                    className="modern-btn"
+                    disabled={loading || smsCode.length !== 4}
+                  >
+                    {loading ? (
+                      <div className="modern-loading">
+                        <div className="modern-spinner"></div>
+                        Weryfikacja...
+                      </div>
+                    ) : (
+                      <>
+                        <FaKey />
+                        Zaloguj się
+                      </>
+                    )}
+                  </button>
+                  
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    marginTop: '1rem',
+                    fontSize: '0.875rem'
+                  }}>
+                    <button
+                      type="button"
+                      onClick={handleBackToPhone}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--text-muted)',
+                        cursor: 'pointer',
+                        fontSize: '0.875rem',
+                      }}
+                    >
+                      ← Zmień numer
+                    </button>
+                    
+                    {resendTimer > 0 ? (
+                      <span style={{ color: 'var(--text-muted)' }}>
+                        Wyślij ponownie za {resendTimer}s
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleSendSmsCode}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--accent-blue)',
+                          cursor: 'pointer',
+                          fontSize: '0.875rem',
+                          fontWeight: '600',
+                        }}
+                        disabled={loading}
+                      >
+                        Wyślij ponownie
+                      </button>
+                    )}
+                  </div>
+                </form>
+              </>
+            )}
             
             {error && <div className="modern-error">{error}</div>}
           </div>
