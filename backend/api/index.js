@@ -125,7 +125,8 @@ async function sendSMSViaSMSAPI(phone, message) {
     to: formattedPhone,
     message: message,
     from: from,
-    test: testMode
+    test: testMode,
+    encoding: 'utf-8'
   };
   
   try {
@@ -136,7 +137,7 @@ async function sendSMSViaSMSAPI(phone, message) {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json; charset=utf-8'
       },
       body: JSON.stringify(smsData)
     });
