@@ -7,6 +7,8 @@ CREATE TABLE users (
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     phone VARCHAR(20) UNIQUE NOT NULL,
+    code VARCHAR(4), -- Kod SMS do logowania
+    code_expires TIMESTAMP, -- Data wygaśnięcia kodu SMS
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -52,6 +54,9 @@ CREATE INDEX idx_parameters_document_id ON parameters(document_id);
 CREATE INDEX idx_parameters_measurement_date ON parameters(measurement_date);
 CREATE INDEX idx_agent_memory_user_id ON agent_memory(user_id);
 CREATE INDEX idx_agent_memory_timestamp ON agent_memory(timestamp);
+
+-- Indeks dla kodów SMS (dla szybkiego wyszukiwania)
+CREATE INDEX idx_users_code ON users(code) WHERE code IS NOT NULL;
 
 -- Przykładowe dane testowe
 INSERT INTO users (name, email, phone) VALUES 

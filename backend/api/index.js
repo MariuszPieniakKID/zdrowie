@@ -362,14 +362,45 @@ async function getMedlinePlusInfo(term) {
 app.post('/api/register', async (req, res) => {
   const { name, email, phone } = req.body;
   const sanitizedPhone = sanitizePhone(phone);
+  
   try {
+    // Sprawdź czy użytkownik już istnieje (email lub telefon)
+    const { rows: existingUsers } = await pool.query(
+      'SELECT email, phone FROM users WHERE email = $1 OR phone = $2',
+      [email, sanitizedPhone]
+    );
+    
+    if (existingUsers.length > 0) {
+      const existingUser = existingUsers[0];
+      if (existingUser.email === email) {
+        return res.status(409).json({ error: 'Użytkownik z tym adresem email już istnieje' });
+      }
+      if (existingUser.phone === sanitizedPhone) {
+        return res.status(409).json({ error: 'Użytkownik z tym numerem telefonu już istnieje' });
+      }
+    }
+    
+    // Jeśli użytkownik nie istnieje, dodaj go
     await pool.query(
       'INSERT INTO users (name, email, phone) VALUES ($1, $2, $3)',
       [name, email, sanitizedPhone]
     );
     res.status(201).json({ message: 'Rejestracja udana!' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Błąd rejestracji:', error);
+    
+    // Dodatkowa obsługa błędów unique constraint na wypadek race condition
+    if (error.code === '23505') {
+      if (error.constraint === 'users_email_key') {
+        return res.status(409).json({ error: 'Użytkownik z tym adresem email już istnieje' });
+      }
+      if (error.constraint === 'users_phone_key') {
+        return res.status(409).json({ error: 'Użytkownik z tym numerem telefonu już istnieje' });
+      }
+      return res.status(409).json({ error: 'Użytkownik z tymi danymi już istnieje' });
+    }
+    
+    res.status(500).json({ error: 'Błąd serwera podczas rejestracji' });
   }
 });
 
@@ -691,6 +722,112 @@ app.post('/api/summarize', async (req, res) => {
     res.json({ summary });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// --- NOWE ENDPOINTY SMS AUTHENTICATION ---
+
+// TYMCZASOWY ENDPOINT DO MIGRACJI - usuń po użyciu
+app.post('/api/migrate-sms-columns', async (req, res) => {
+  try {
+    console.log('🔄 Rozpoczynam migrację kolumn SMS...');
+    
+    // Dodaj kolumny code i code_expires jeśli nie istnieją
+    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS code VARCHAR(4)');
+    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS code_expires TIMESTAMP');
+    
+    // Dodaj indeks dla kodów SMS
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_users_code ON users(code) WHERE code IS NOT NULL');
+    
+    console.log('✅ Migracja zakończona pomyślnie');
+    res.json({ message: 'Migracja kolumn SMS zakończona pomyślnie!' });
+    
+  } catch (error) {
+    console.error('❌ Błąd migracji:', error);
+    res.status(500).json({ error: 'Błąd migracji: ' + error.message });
+  }
+});
+
+app.post('/api/send-sms-code', async (req, res) => {
+  const { phone } = req.body;
+  const sanitizedPhone = sanitizePhone(phone);
+  
+  try {
+    // Sprawdź czy użytkownik istnieje
+    const { rows: users } = await pool.query(
+      'SELECT id FROM users WHERE phone = $1',
+      [sanitizedPhone]
+    );
+    
+    if (users.length === 0) {
+      return res.status(404).json({ error: 'Nie znaleziono użytkownika z tym numerem telefonu' });
+    }
+    
+    // Wygeneruj 4-cyfrowy kod
+    const code = Math.floor(1000 + Math.random() * 9000).toString();
+    const codeExpires = new Date(Date.now() + 5 * 60 * 1000); // 5 minut ważności
+    
+    // Zapisz kod w bazie (dodamy kolumny code i code_expires do tabeli users)
+    await pool.query(
+      'UPDATE users SET code = $1, code_expires = $2 WHERE phone = $3',
+      [code, codeExpires, sanitizedPhone]
+    );
+    
+    // TODO: W prawdziwej implementacji tutaj byłoby wysłanie SMS przez SMSAPI.pl
+    // Na razie zwracamy kod w odpowiedzi (tylko do testów)
+    console.log(`📱 Kod SMS dla ${sanitizedPhone}: ${code}`);
+    
+    // UWAGA: W produkcji usuń poniższą linię - kod nie powinien być zwracany!
+    // To jest tylko dla celów testowych
+    if (process.env.NODE_ENV !== 'production') {
+      res.json({ 
+        message: 'Kod SMS został wysłany',
+        codeId: `temp_${Date.now()}`,
+        testCode: code // TYLKO DLA TESTÓW - usuń w produkcji!
+      });
+    } else {
+      res.json({ 
+        message: 'Kod SMS został wysłany',
+        codeId: `temp_${Date.now()}`
+      });
+    }
+    
+  } catch (error) {
+    console.error('Błąd wysyłania kodu SMS:', error);
+    res.status(500).json({ error: 'Błąd wysyłania kodu SMS' });
+  }
+});
+
+app.post('/api/verify-sms-code', async (req, res) => {
+  const { phone, code, codeId } = req.body;
+  const sanitizedPhone = sanitizePhone(phone);
+  
+  try {
+    // Sprawdź kod w bazie
+    const { rows: users } = await pool.query(
+      'SELECT * FROM users WHERE phone = $1 AND code = $2 AND code_expires > NOW()',
+      [sanitizedPhone, code]
+    );
+    
+    if (users.length === 0) {
+      return res.status(400).json({ error: 'Nieprawidłowy lub wygasły kod SMS' });
+    }
+    
+    const user = users[0];
+    
+    // Wyczyść kod po udanej weryfikacji
+    await pool.query(
+      'UPDATE users SET code = NULL, code_expires = NULL WHERE id = $1',
+      [user.id]
+    );
+    
+    // Zwróć dane użytkownika (bez kodu)
+    const { code: _, code_expires: __, ...userWithoutCode } = user;
+    res.json({ user: userWithoutCode });
+    
+  } catch (error) {
+    console.error('Błąd weryfikacji kodu SMS:', error);
+    res.status(500).json({ error: 'Błąd weryfikacji kodu SMS' });
   }
 });
 
