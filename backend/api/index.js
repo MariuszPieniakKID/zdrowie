@@ -854,22 +854,30 @@ app.post('/api/send-sms-code', async (req, res) => {
     } catch (smsError) {
       console.error('❌ Błąd wysyłania SMS:', smsError.message);
       
-      // Jeśli wysyłanie SMS nie powiodło się, ale mamy tryb fallback
-      if (process.env.NODE_ENV !== 'production' || process.env.SMSAPI_TEST === 'true') {
-        console.log(`🔄 Fallback: Kod SMS dla ${sanitizedPhone}: ${code}`);
+      // Sprawdź czy to błąd konfiguracji SMSAPI
+      const isConfigError = smsError.message.includes('SMSAPI_TOKEN nie jest skonfigurowany') ||
+                           smsError.message.includes('SMSAPI błąd') ||
+                           smsError.message.includes('fetch');
+      
+      // Tryb fallback - pokaż kod w odpowiedzi jeśli SMSAPI nie jest skonfigurowany
+      if (isConfigError) {
+        console.log(`🔄 Fallback: SMSAPI nie skonfigurowany, pokazuję kod testowy`);
+        console.log(`📱 Kod SMS dla ${sanitizedPhone}: ${code}`);
         
         res.json({ 
-          message: 'Problem z wysyłaniem SMS - użyj kodu testowego',
+          message: 'SMSAPI nie jest skonfigurowany - użyj kodu testowego poniżej',
           codeId: `fallback_${Date.now()}`,
-          testCode: code, // TYLKO W TRYBIE TESTOWYM!
-          error: 'SMS nie został wysłany przez SMSAPI',
-          smsError: smsError.message
+          testCode: code,
+          warning: 'Skonfiguruj SMSAPI.pl aby otrzymywać prawdziwe SMS-y',
+          smsError: smsError.message,
+          configurationNeeded: true
         });
       } else {
-        // W produkcji bez trybu testowego - zwróć błąd
+        // Inne błędy SMS (np. błędy sieci, nieprawidłowy numer itp.)
         res.status(500).json({ 
           error: 'Nie udało się wysłać kodu SMS. Spróbuj ponownie później.',
-          details: process.env.NODE_ENV === 'development' ? smsError.message : undefined
+          details: process.env.NODE_ENV === 'development' ? smsError.message : undefined,
+          canRetry: true
         });
       }
     }
