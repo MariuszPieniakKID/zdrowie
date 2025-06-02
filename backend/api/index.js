@@ -102,6 +102,65 @@ const upload = multer({ storage: multerStorage });
 
 const sanitizePhone = (phone) => phone.replace(/[-\s]/g, '');
 
+// ============ FUNKCJA WYSYŁANIA SMS PRZEZ SMSAPI.PL =================
+async function sendSMSViaSMSAPI(phone, message) {
+  const token = process.env.SMSAPI_TOKEN;
+  const from = process.env.SMSAPI_FROM || 'MedApp';
+  const testMode = process.env.SMSAPI_TEST === 'true';
+  const baseUrl = process.env.SMSAPI_BASE_URL || 'https://api.smsapi.pl';
+  
+  if (!token) {
+    throw new Error('SMSAPI_TOKEN nie jest skonfigurowany');
+  }
+  
+  // Przygotuj numer telefonu w formacie międzynarodowym
+  let formattedPhone = phone;
+  if (phone.startsWith('48') && phone.length === 11) {
+    formattedPhone = phone; // już z kodem kraju
+  } else if (phone.length === 9) {
+    formattedPhone = '48' + phone; // dodaj kod Polski
+  }
+  
+  const smsData = {
+    to: formattedPhone,
+    message: message,
+    from: from,
+    test: testMode
+  };
+  
+  try {
+    console.log(`📱 Wysyłam SMS na ${formattedPhone}: "${message}"`);
+    console.log(`🔧 Tryb testowy: ${testMode ? 'TAK' : 'NIE'}`);
+    
+    const response = await fetch(`${baseUrl}/sms.do`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(smsData)
+    });
+    
+    const result = await response.text();
+    console.log(`📊 Odpowiedź SMSAPI: ${result}`);
+    
+    if (!response.ok) {
+      throw new Error(`SMSAPI błąd ${response.status}: ${result}`);
+    }
+    
+    // SMSAPI zwraca ID wiadomości po wysłaniu
+    return {
+      success: true,
+      messageId: result.trim(),
+      testMode: testMode
+    };
+    
+  } catch (error) {
+    console.error('❌ Błąd wysyłania SMS przez SMSAPI:', error);
+    throw error;
+  }
+}
+
 // ============ NOWE FUNKCJE OCR BEZ GOOGLE CLOUD =================
 
 // 🚀 NOWOŚĆ: GPT-4 Vision - bezpośrednia analiza obrazów (bez PDF support na Vercel)
@@ -767,33 +826,56 @@ app.post('/api/send-sms-code', async (req, res) => {
     const code = Math.floor(1000 + Math.random() * 9000).toString();
     const codeExpires = new Date(Date.now() + 5 * 60 * 1000); // 5 minut ważności
     
-    // Zapisz kod w bazie (dodamy kolumny code i code_expires do tabeli users)
+    // Zapisz kod w bazie
     await pool.query(
       'UPDATE users SET code = $1, code_expires = $2 WHERE phone = $3',
       [code, codeExpires, sanitizedPhone]
     );
     
-    // TODO: W prawdziwej implementacji tutaj byłoby wysłanie SMS przez SMSAPI.pl
-    // Na razie zwracamy kod w odpowiedzi (tylko do testów)
-    console.log(`📱 Kod SMS dla ${sanitizedPhone}: ${code}`);
+    // Przygotuj wiadomość SMS
+    const smsMessage = `Twój kod logowania: ${code}. Kod wygasa za 5 minut.`;
     
-    // UWAGA: W produkcji usuń poniższą linię - kod nie powinien być zwracany!
-    // To jest tylko dla celów testowych
-    if (process.env.NODE_ENV !== 'production') {
+    try {
+      // Wyślij SMS przez SMSAPI.pl
+      const smsResult = await sendSMSViaSMSAPI(sanitizedPhone, smsMessage);
+      
+      console.log(`✅ SMS wysłany pomyślnie na ${sanitizedPhone}`);
+      console.log(`📱 ID wiadomości: ${smsResult.messageId}`);
+      
+      // Jeśli SMS został wysłany pomyślnie
       res.json({ 
-        message: 'Kod SMS został wysłany',
-        codeId: `temp_${Date.now()}`,
-        testCode: code // TYLKO DLA TESTÓW - usuń w produkcji!
+        message: smsResult.testMode 
+          ? 'Kod SMS został wysłany (tryb testowy)'
+          : 'Kod SMS został wysłany na Twój numer telefonu',
+        codeId: smsResult.messageId,
+        testMode: smsResult.testMode
       });
-    } else {
-      res.json({ 
-        message: 'Kod SMS został wysłany',
-        codeId: `temp_${Date.now()}`
-      });
+      
+    } catch (smsError) {
+      console.error('❌ Błąd wysyłania SMS:', smsError.message);
+      
+      // Jeśli wysyłanie SMS nie powiodło się, ale mamy tryb fallback
+      if (process.env.NODE_ENV !== 'production' || process.env.SMSAPI_TEST === 'true') {
+        console.log(`🔄 Fallback: Kod SMS dla ${sanitizedPhone}: ${code}`);
+        
+        res.json({ 
+          message: 'Problem z wysyłaniem SMS - użyj kodu testowego',
+          codeId: `fallback_${Date.now()}`,
+          testCode: code, // TYLKO W TRYBIE TESTOWYM!
+          error: 'SMS nie został wysłany przez SMSAPI',
+          smsError: smsError.message
+        });
+      } else {
+        // W produkcji bez trybu testowego - zwróć błąd
+        res.status(500).json({ 
+          error: 'Nie udało się wysłać kodu SMS. Spróbuj ponownie później.',
+          details: process.env.NODE_ENV === 'development' ? smsError.message : undefined
+        });
+      }
     }
     
   } catch (error) {
-    console.error('Błąd wysyłania kodu SMS:', error);
+    console.error('Błąd ogólny w send-sms-code:', error);
     res.status(500).json({ error: 'Błąd wysyłania kodu SMS' });
   }
 });
