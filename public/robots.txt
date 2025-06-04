@@ -1,3 +1,23 @@
 # https://www.robotstxt.org/robotstxt.html
+# Dostęp zablokowany dla wszystkich robotów
 User-agent: *
-Disallow:
+Disallow: /
+
+# Explicit disallow for major search engines
+User-agent: Googlebot
+Disallow: /
+
+User-agent: Bingbot
+Disallow: /
+
+User-agent: Slurp
+Disallow: /
+
+User-agent: DuckDuckBot
+Disallow: /
+
+User-agent: Baiduspider
+Disallow: /
+
+User-agent: YandexBot
+Disallow: /

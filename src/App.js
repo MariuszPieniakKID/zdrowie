@@ -8,11 +8,15 @@ import WgrajPlik from './upload';
 import EdytujProfil from './edit'; 
 import Landing from './landing';
 import './components.css';
-import { FaSignOutAlt, FaUser, FaChartLine, FaFileAlt, FaHome, FaUpload, FaEye, FaMobileAlt, FaKey } from 'react-icons/fa';
+import { FaSignOutAlt, FaUser, FaChartLine, FaFileAlt, FaHome, FaUpload, FaEye, FaMobileAlt, FaKey, FaLock } from 'react-icons/fa';
 
 Chart.register(...registerables);
 
 function App() {
+  const [isPasswordAuthenticated, setIsPasswordAuthenticated] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+
   const [view, setView] = useState('login');
   const [user, setUser] = useState(null);
   const [loginPhone, setLoginPhone] = useState('');
@@ -119,6 +123,14 @@ function App() {
     }
   }, []);
 
+  // SPRAWDZENIE HASŁA Z LOCALSTORAGE PRZY ŁADOWANIU STRONY
+  useEffect(() => {
+    const passwordAuth = localStorage.getItem('passwordAuth');
+    if (passwordAuth === 'true') {
+      setIsPasswordAuthenticated(true);
+    }
+  }, []);
+
   useEffect(() => {
     const checkExistingAnalysis = async () => {
       try {
@@ -146,38 +158,29 @@ function App() {
   const sanitizePhone = (phone) => phone.replace(/[\s-]/g, '');
   const isValidPhone = (phone) => /^(\+48)?\d{9}$/.test(sanitizePhone(phone));
 
-  // STARY SYSTEM LOGOWANIA - ZAKOMENTOWANY
-  /*
-  const handleLogin = async (e) => {
+  // FUNKCJE OBSŁUGI HASŁA
+  const handlePasswordSubmit = (e) => {
     e.preventDefault();
-    setError('');
-    if (!isValidPhone(loginPhone)) {
-      setError('Podaj poprawny numer telefonu');
-      return;
-    }
-    setLoading(true);
-    try {
-      const res = await axios.post('https://zdrowie-backend.vercel.app/api/login', { phone: sanitizePhone(loginPhone) });
-      setUser(res.data.user);
-      setEditForm(res.data.user);
-      setView('main');
-      localStorage.setItem('user', JSON.stringify(res.data.user));
-      // CZYSZCZENIE STANU
-      setFiles({ documents: [], total: 0, page: 1, totalPages: 1 });
-      setParameters([]);
-      setSelectedParams([]);
-      setChartData({ labels: [], datasets: [] });
-      setSummary('');
-      setAnalysis('');
-      setSelectedDoc(null);
-      setError('');
-    } catch (err) {
-      setError(err.response?.data?.error || 'Błąd logowania');
-    } finally {
-      setLoading(false);
+    setPasswordError('');
+    
+    if (passwordInput === '1234') {
+      setIsPasswordAuthenticated(true);
+      localStorage.setItem('passwordAuth', 'true');
+      setPasswordInput('');
+    } else {
+      setPasswordError('Nieprawidłowe hasło');
+      setPasswordInput('');
     }
   };
-  */
+
+  const handlePasswordLogout = () => {
+    localStorage.removeItem('passwordAuth');
+    localStorage.removeItem('user');
+    setIsPasswordAuthenticated(false);
+    setUser(null);
+    setView('login');
+    setShowLanding(true);
+  };
 
   // NOWY SYSTEM LOGOWANIA Z KODEM SMS
   useEffect(() => {
@@ -450,9 +453,10 @@ function App() {
   };
 
   const handleLogout = () => {
-    setUser(null);
-    setShowLanding(true);
     localStorage.removeItem('user');
+    setUser(null);
+    setView('login');
+    setShowLanding(true);
     setFiles({ documents: [], total: 0, page: 1, totalPages: 1 });
     setParameters([]);
     setSelectedParams([]);
@@ -469,6 +473,99 @@ function App() {
     setResendTimer(0);
     window.location.reload();
   };
+
+  // ZABEZPIECZENIE HASŁEM - WYŚWIETLANE PRZED WSZYSTKIMI INNYMI ELEMENTAMI
+  if (!isPasswordAuthenticated) {
+    return (
+      <div className="modern-container">
+        <div className="bg-particles">
+          <div className="particle"></div>
+          <div className="particle"></div>
+          <div className="particle"></div>
+        </div>
+
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          minHeight: '100vh',
+          padding: '2rem'
+        }}>
+          <div className="modern-card" style={{ maxWidth: '400px', width: '100%' }}>
+            <div className="modern-page-header" style={{ marginBottom: '2rem', textAlign: 'center' }}>
+              <div style={{
+                width: '80px',
+                height: '80px',
+                background: 'var(--primary-gradient)',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'white',
+                fontSize: '2rem',
+                margin: '0 auto 1rem'
+              }}>
+                <FaLock />
+              </div>
+              <h2 className="modern-page-title" style={{ fontSize: '2rem' }}>
+                Dostęp ograniczony
+              </h2>
+              <p className="modern-page-subtitle">
+                Wprowadź hasło aby uzyskać dostęp do aplikacji
+              </p>
+            </div>
+            
+            <form onSubmit={handlePasswordSubmit} className="modern-form">
+              <div className="modern-form-group">
+                <label className="modern-label">
+                  <FaLock style={{ marginRight: '0.5rem', color: 'var(--accent-blue)' }} />
+                  Hasło dostępu
+                </label>
+                <input
+                  type="password"
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  placeholder="Wprowadź hasło"
+                  className="modern-input"
+                  style={{ 
+                    textAlign: 'center', 
+                    fontSize: '1.2rem',
+                    letterSpacing: '0.1rem'
+                  }}
+                  required
+                  autoFocus
+                />
+              </div>
+              
+              <button 
+                type="submit" 
+                className="modern-btn"
+                disabled={!passwordInput}
+              >
+                <FaLock />
+                Uzyskaj dostęp
+              </button>
+            </form>
+            
+            {passwordError && <div className="modern-error">{passwordError}</div>}
+            
+            <div style={{ 
+              marginTop: '2rem', 
+              padding: '1rem', 
+              background: 'var(--bg-secondary)', 
+              borderRadius: '8px',
+              fontSize: '0.875rem',
+              color: 'var(--text-muted)',
+              textAlign: 'center'
+            }}>
+              <FaLock style={{ marginRight: '0.5rem' }} />
+              Ta strona jest chroniona hasłem aby zapobiec indeksowaniu przez roboty
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Modern Landing Page
   if (showLanding && !user) {
@@ -999,6 +1096,36 @@ function App() {
             >
               <FaUser />
               Edytuj profil
+            </button>
+            
+            <div style={{ 
+              height: '1px', 
+              background: 'var(--border-color)', 
+              margin: '1rem 0' 
+            }}></div>
+            
+            <button
+              onClick={handlePasswordLogout}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.75rem',
+                padding: '1rem',
+                background: 'transparent',
+                color: 'var(--accent-orange)',
+                border: 'none',
+                borderRadius: '12px',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                fontSize: '0.875rem',
+                fontWeight: '500',
+                width: '100%',
+                textAlign: 'left'
+              }}
+              title="Wyloguj z hasła dostępu"
+            >
+              <FaLock />
+              Wyloguj z hasła
             </button>
           </div>
         </nav>
