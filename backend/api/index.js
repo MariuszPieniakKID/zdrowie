@@ -328,19 +328,9 @@ async function extractTextFromPDF(filePath, symptoms = '', chronic_diseases = ''
     return { text, method: 'pdf-parse', isDirectAnalysis: false };
   }
   
-  console.log('⚠️ PDF-parse nie wykrył wystarczająco tekstu, próbuję Tesseract OCR...');
-  
-  // Jeśli pdf-parse nie zadziałał, użyj Tesseract
-  text = await extractTextWithTesseract(filePath);
-  
-  if (text && text.trim().length > 20) {
-    console.log('✅ Tesseract OCR sukces');
-    return { text, method: 'Tesseract', isDirectAnalysis: false };
-  }
-  
-  // Jeśli mamy Google Cloud, spróbuj jako ostatnia opcja (ale pewnie będzie błąd billing)
+  // 🌥️ PRZYWRÓCONE: Google Cloud OCR jako druga opcja (po pdf-parse)
   if (visionClient && gcsStorage) {
-    console.log('🌥️ Próbuję Google Cloud OCR jako ostatnią opcję...');
+    console.log('🌥️ PDF-parse nie wykrył wystarczająco tekstu, próbuję Google Cloud OCR...');
     try {
       const bucketName = process.env.GCS_BUCKET_NAME;
       const destFileName = `${Date.now()}-${path.basename(filePath)}`;
@@ -357,6 +347,18 @@ async function extractTextFromPDF(filePath, symptoms = '', chronic_diseases = ''
     } catch (error) {
       console.log('❌ Google Cloud OCR failed:', error.message);
     }
+  } else {
+    console.log('⚠️ Google Cloud OCR niedostępny (brak konfiguracji GCP)');
+  }
+  
+  console.log('⚠️ Próbuję Tesseract OCR jako ostatnią opcję...');
+  
+  // Tesseract jako ostatnia opcja
+  text = await extractTextWithTesseract(filePath);
+  
+  if (text && text.trim().length > 20) {
+    console.log('✅ Tesseract OCR sukces');
+    return { text, method: 'Tesseract', isDirectAnalysis: false };
   }
   
   console.log('❌ Wszystkie metody OCR zawiodły');
