@@ -616,12 +616,24 @@ app.get('/api/user/:id', async (req, res) => {
 app.post('/api/upload', upload.single('pdf'), async (req, res) => {
   const { user_id, symptoms, chronic_diseases, medications } = req.body;
   try {
+    // Przeczytaj zawartość pliku i zapisz w bazie jako BLOB
+    const fileContent = fs.readFileSync(req.file.path);
+    const base64Content = fileContent.toString('base64');
+    
+    console.log(`📁 Zapisuję plik ${req.file.originalname} w bazie danych (${fileContent.length} bajtów)`);
+    
     const result = await pool.query(
-      'INSERT INTO documents (user_id, filename, filepath, symptoms, chronic_diseases, medications) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
-      [user_id, req.file.originalname, req.file.filename, symptoms, chronic_diseases, medications]
+      'INSERT INTO documents (user_id, filename, filepath, file_content, symptoms, chronic_diseases, medications) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
+      [user_id, req.file.originalname, req.file.filename, base64Content, symptoms, chronic_diseases, medications]
     );
-    res.json({ message: 'Plik przesłany', documentId: result.rows[0].id });
+    
+    // Usuń tymczasowy plik z /tmp/
+    fs.unlinkSync(req.file.path);
+    console.log(`🗑️ Usunięto tymczasowy plik: ${req.file.path}`);
+    
+    res.json({ message: 'Plik przesłany i zapisany w bazie danych', documentId: result.rows[0].id });
   } catch (error) {
+    console.error('Błąd uploadu:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -725,27 +737,47 @@ app.post('/api/analyze-file', async (req, res) => {
     );
     if (!docs.length) return res.status(404).json({ error: 'Nie znaleziono pliku' });
 
-    // Sprawdź różne lokalizacje pliku (Vercel vs local development)
-    let filePath = path.join(uploadDir, docs[0].filepath);
+    // Odtwórz plik z bazy danych do tymczasowej lokalizacji
+    let filePath;
     
-    // Jeśli plik nie istnieje w /tmp/uploads, sprawdź inne lokalizacje
-    if (!fs.existsSync(filePath)) {
-      console.log(`⚠️ Plik nie znaleziony w: ${filePath}`);
+    if (docs[0].file_content) {
+      // Nowy system: plik zapisany w bazie danych
+      console.log(`📁 Odtwarzam plik ${docs[0].filename} z bazy danych`);
       
-      // Spróbuj bez uploadDir (może być zapisany bezpośrednio)
-      const alternativePath = docs[0].filepath;
-      if (fs.existsSync(alternativePath)) {
-        filePath = alternativePath;
-        console.log(`✅ Znaleziono plik w: ${filePath}`);
-      } else {
-        console.log(`❌ Plik nie znaleziony także w: ${alternativePath}`);
-        return res.status(404).json({ 
-          error: 'Plik nie został znaleziony na serwerze',
-          details: `Sprawdzono lokalizacje: ${path.join(uploadDir, docs[0].filepath)}, ${alternativePath}`
-        });
+      const fileBuffer = Buffer.from(docs[0].file_content, 'base64');
+      const tempFileName = `temp-${Date.now()}-${docs[0].filename}`;
+      filePath = path.join(uploadDir, tempFileName);
+      
+      // Upewnij się że katalog istnieje
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
       }
+      
+      fs.writeFileSync(filePath, fileBuffer);
+      console.log(`✅ Odtworzono plik w: ${filePath} (${fileBuffer.length} bajtów)`);
+      
     } else {
-      console.log(`✅ Znaleziono plik w: ${filePath}`);
+      // Stary system: plik w systemie plików (fallback)
+      console.log(`📂 Sprawdzam stary system plików dla: ${docs[0].filename}`);
+      filePath = path.join(uploadDir, docs[0].filepath);
+      
+      if (!fs.existsSync(filePath)) {
+        console.log(`⚠️ Plik nie znaleziony w: ${filePath}`);
+        
+        const alternativePath = docs[0].filepath;
+        if (fs.existsSync(alternativePath)) {
+          filePath = alternativePath;
+          console.log(`✅ Znaleziono plik w: ${filePath}`);
+        } else {
+          console.log(`❌ Plik nie znaleziony także w: ${alternativePath}`);
+          return res.status(404).json({ 
+            error: 'Plik nie został znaleziony na serwerze (brak file_content w bazie)',
+            details: `Sprawdzono lokalizacje: ${path.join(uploadDir, docs[0].filepath)}, ${alternativePath}`
+          });
+        }
+      } else {
+        console.log(`✅ Znaleziono plik w: ${filePath}`);
+      }
     }
 
     console.log(`🔍 Analizuję plik: ${docs[0].filename} (${filePath})`);
@@ -909,6 +941,16 @@ Jeśli istnieją istotne zmiany względem poprzednich badań, wskaż je.`;
   } catch (error) {
     console.error('Błąd analizy:', error);
     res.status(500).json({ error: error.message });
+  } finally {
+    // Wyczyść tymczasowy plik jeśli został utworzony z bazy danych
+    if (filePath && filePath.includes('temp-') && fs.existsSync(filePath)) {
+      try {
+        fs.unlinkSync(filePath);
+        console.log(`🗑️ Usunięto tymczasowy plik: ${filePath}`);
+      } catch (cleanupError) {
+        console.log(`⚠️ Nie udało się usunąć tymczasowego pliku: ${cleanupError.message}`);
+      }
+    }
   }
 });
 
