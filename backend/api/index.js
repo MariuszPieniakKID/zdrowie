@@ -285,15 +285,9 @@ async function extractTextFromPDFLocal(filePath) {
 
 // 2. OCR z Tesseract.js (dla zeskanowanych PDF-ów)
 async function extractTextWithTesseract(filePath) {
-  try {
-    const { data: { text } } = await Tesseract.recognize(filePath, 'pol', {
-      logger: m => console.log(m)
-    });
-    return text;
-  } catch (error) {
-    console.log('Tesseract OCR failed:', error.message);
-    return null;
-  }
+  // Tesseract nie działa na Vercel - brakuje plików WASM i powoduje timeout
+  console.log('⚠️ Tesseract OCR pominięty - nie działa na Vercel (brak plików WASM)');
+  return null;
 }
 
 // 3. Funkcja automatycznego wyboru metody OCR
@@ -351,9 +345,9 @@ async function extractTextFromPDF(filePath, symptoms = '', chronic_diseases = ''
     console.log('⚠️ Google Cloud OCR niedostępny (brak konfiguracji GCP)');
   }
   
-  console.log('⚠️ Próbuję Tesseract OCR jako ostatnią opcję...');
+  console.log('⚠️ Próbowałbym Tesseract OCR, ale nie działa na Vercel...');
   
-  // Tesseract jako ostatnia opcja
+  // Tesseract jako ostatnia opcja (ale nie działa na Vercel)
   text = await extractTextWithTesseract(filePath);
   
   if (text && text.trim().length > 20) {
@@ -362,7 +356,24 @@ async function extractTextFromPDF(filePath, symptoms = '', chronic_diseases = ''
   }
   
   console.log('❌ Wszystkie metody OCR zawiodły');
-  throw new Error('Nie udało się wyciągnąć tekstu z PDF. Sprawdź czy plik zawiera czytelny tekst.');
+  
+  // Ostatnia szansa: jeśli to obraz, spróbuj bezpośrednio GPT-4 Vision
+  const fileExtension = path.extname(filePath).toLowerCase();
+  if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(fileExtension) && openai) {
+    console.log('🎯 Ostatnia szansa: GPT-4 Vision dla obrazu...');
+    const visionResult = await analyzeFileWithGPT4Vision(filePath, symptoms || '', chronic_diseases || '', medications || '');
+    
+    if (visionResult.success) {
+      console.log('✅ GPT-4 Vision sukces jako ostatnia opcja');
+      return {
+        text: visionResult.analysis,
+        method: 'GPT-4 Vision (fallback)',
+        isDirectAnalysis: true
+      };
+    }
+  }
+  
+  throw new Error('Nie udało się wyciągnąć tekstu z pliku. Sprawdź czy plik zawiera czytelny tekst lub spróbuj przesłać plik w innym formacie.');
 }
 
 // ============ STARE FUNKCJE GOOGLE CLOUD (zachowane dla kompatybilności) =================
@@ -572,19 +583,46 @@ app.post('/api/analyze-file', async (req, res) => {
     );
     if (!docs.length) return res.status(404).json({ error: 'Nie znaleziono pliku' });
 
-    const filePath = path.join(uploadDir, docs[0].filepath);
+    // Sprawdź różne lokalizacje pliku (Vercel vs local development)
+    let filePath = path.join(uploadDir, docs[0].filepath);
+    
+    // Jeśli plik nie istnieje w /tmp/uploads, sprawdź inne lokalizacje
+    if (!fs.existsSync(filePath)) {
+      console.log(`⚠️ Plik nie znaleziony w: ${filePath}`);
+      
+      // Spróbuj bez uploadDir (może być zapisany bezpośrednio)
+      const alternativePath = docs[0].filepath;
+      if (fs.existsSync(alternativePath)) {
+        filePath = alternativePath;
+        console.log(`✅ Znaleziono plik w: ${filePath}`);
+      } else {
+        console.log(`❌ Plik nie znaleziony także w: ${alternativePath}`);
+        return res.status(404).json({ 
+          error: 'Plik nie został znaleziony na serwerze',
+          details: `Sprawdzono lokalizacje: ${path.join(uploadDir, docs[0].filepath)}, ${alternativePath}`
+        });
+      }
+    } else {
+      console.log(`✅ Znaleziono plik w: ${filePath}`);
+    }
 
-    // NOWA LOGIKA: Użyj lokalnego OCR zamiast Google Cloud
-    console.log(`🔍 Analizuję plik: ${docs[0].filename}`);
+    console.log(`🔍 Analizuję plik: ${docs[0].filename} (${filePath})`);
     let extractResult;
     
     try {
-      extractResult = await extractTextFromPDF(filePath, docs[0].symptoms, docs[0].chronic_diseases, docs[0].medications);
+      // Timeout protection - Vercel ma limit 60 sekund
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout - analiza trwała zbyt długo (>50s)')), 50000)
+      );
+      
+      const extractPromise = extractTextFromPDF(filePath, docs[0].symptoms, docs[0].chronic_diseases, docs[0].medications);
+      
+      extractResult = await Promise.race([extractPromise, timeoutPromise]);
       console.log(`✅ Wyciągnięto ${extractResult.text.length} znaków tekstu metodą: ${extractResult.method}`);
     } catch (ocrError) {
       console.error('❌ Błąd OCR:', ocrError.message);
       return res.status(500).json({ 
-        error: 'Nie udało się wyciągnąć tekstu z pliku PDF. Sprawdź czy plik zawiera czytelny tekst.',
+        error: 'Nie udało się wyciągnąć tekstu z pliku. Spróbuj przesłać plik w innym formacie.',
         details: ocrError.message 
       });
     }
