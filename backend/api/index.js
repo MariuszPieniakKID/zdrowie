@@ -689,6 +689,37 @@ app.get('/api/parameters/:user_id', async (req, res) => {
   }
 });
 
+// --- SPRAWDZENIE KONFIGURACJI GCP ---
+app.get('/api/check-gcp-config', async (req, res) => {
+  try {
+    const config = {
+      project_id: process.env.GCP_PROJECT_ID || 'NOT SET',
+      service_account_email: process.env.GCP_SERVICE_ACCOUNT_EMAIL || 'NOT SET',
+      private_key_set: process.env.GCP_PRIVATE_KEY ? 'SET (length: ' + process.env.GCP_PRIVATE_KEY.length + ')' : 'NOT SET',
+      bucket_name: process.env.GCS_BUCKET_NAME || 'NOT SET',
+      vision_client_available: !!visionClient,
+      gcs_storage_available: !!gcsStorage
+    };
+    
+    // Test połączenia z Google Cloud (bez kosztów)
+    if (visionClient) {
+      try {
+        // Sprawdź czy możemy się połączyć (nie kosztuje nic)
+        await visionClient.getProjectId();
+        config.connection_test = 'SUCCESS - można się połączyć';
+      } catch (error) {
+        config.connection_test = 'FAILED: ' + error.message;
+      }
+    } else {
+      config.connection_test = 'SKIPPED - brak konfiguracji';
+    }
+    
+    res.json(config);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // --- MIGRACJA BAZY DANYCH ---
 app.post('/api/migrate-database', async (req, res) => {
   try {
