@@ -291,11 +291,15 @@ async function extractTextWithTesseract(filePath) {
 }
 
 // 3. Funkcja automatycznego wyboru metody OCR
-async function extractTextFromPDF(filePath, symptoms = '', chronic_diseases = '', medications = '') {
+async function extractTextFromPDF(filePath, symptoms = '', chronic_diseases = '', medications = '', forceGoogleOCR = false) {
   console.log('🔍 Rozpoczynam ekstrakcję tekstu z PDF...');
   
-  // 🚀 NOWOŚĆ: Najpierw próbuj GPT-4 Vision (jeśli dostępne)
-  if (openai) {
+  if (forceGoogleOCR) {
+    console.log('🎯 WYMUSZONO Google Cloud OCR - pomijam inne metody');
+  }
+  
+  // 🚀 NOWOŚĆ: Najpierw próbuj GPT-4 Vision (jeśli dostępne i nie wymuszono Google OCR)
+  if (openai && !forceGoogleOCR) {
     console.log('🤖 Próbuję GPT-4 Vision jako pierwszą opcję...');
     const visionResult = await analyzeFileWithGPT4Vision(filePath, symptoms, chronic_diseases, medications);
     
@@ -309,22 +313,63 @@ async function extractTextFromPDF(filePath, symptoms = '', chronic_diseases = ''
     } else {
       console.log(`⚠️ GPT-4 Vision failed: ${visionResult.error}, próbuję inne metody...`);
     }
+  } else if (forceGoogleOCR) {
+    console.log('⚠️ Pomijam GPT-4 Vision (wymuszono Google Cloud OCR)');
   } else {
     console.log('⚠️ OpenAI API niedostępne, pomijam GPT-4 Vision');
   }
 
   // Fallback: Stare metody OCR dla wyciągnięcia surowego tekstu
-  console.log('📄 Próbuję pdf-parse...');
-  let text = await extractTextFromPDFLocal(filePath);
+  if (!forceGoogleOCR) {
+    console.log('📄 Próbuję pdf-parse...');
+  } else {
+    console.log('📄 Pomijam pdf-parse (wymuszono Google Cloud OCR)');
+  }
+  
+  let text = !forceGoogleOCR ? await extractTextFromPDFLocal(filePath) : null;
   
   if (text && text.trim().length > 50) {
     console.log('✅ PDF-parse sukces - znaleziono tekst');
-    return { text, method: 'pdf-parse', isDirectAnalysis: false };
+    console.log('📋 Podgląd tekstu z pdf-parse (pierwsze 200 znaków):');
+    console.log(text.substring(0, 200) + '...');
+    
+    // Sprawdź jakość tekstu - czy zawiera medyczne słowa kluczowe
+    const medicalKeywords = ['badanie', 'wynik', 'norma', 'pacjent', 'lekarz', 'mg/dl', 'mmol/l', 'g/l', 'laboratoryj'];
+    const hasmedicalContent = medicalKeywords.some(keyword => 
+      text.toLowerCase().includes(keyword.toLowerCase())
+    );
+    
+    if (!hasmedicalContent) {
+      console.log('⚠️ PDF-parse: tekst nie zawiera słów medycznych, może być uszkodzony');
+      console.log('🔍 Sprawdzam czy tekst zawiera powtarzające się znaki...');
+      
+      // Sprawdź czy tekst nie jest uszkodzony (powtarzające się znaki)
+      const uniqueChars = new Set(text.replace(/\s/g, '')).size;
+      const totalChars = text.replace(/\s/g, '').length;
+      const diversity = uniqueChars / totalChars;
+      
+      console.log(`📊 Różnorodność znaków: ${diversity.toFixed(3)} (${uniqueChars}/${totalChars})`);
+      
+      if (diversity < 0.1) {
+        console.log('❌ PDF-parse: tekst wydaje się uszkodzony (niska różnorodność), próbuję Google Cloud OCR...');
+        // Nie zwracaj tekstu, kontynuuj do Google Cloud OCR
+      } else {
+        return { text, method: 'pdf-parse', isDirectAnalysis: false };
+      }
+    } else {
+      console.log('✅ PDF-parse: tekst zawiera słowa medyczne, wygląda dobrze');
+      return { text, method: 'pdf-parse', isDirectAnalysis: false };
+    }
   }
   
   // 🌥️ PRZYWRÓCONE: Google Cloud OCR jako druga opcja (po pdf-parse)
   if (visionClient && gcsStorage) {
-    console.log('🌥️ PDF-parse nie wykrył wystarczająco tekstu, próbuję Google Cloud OCR...');
+    console.log('🌥️ PDF-parse nie wykrył wystarczająco dobrego tekstu, próbuję Google Cloud OCR...');
+    console.log('🔧 Konfiguracja GCP:');
+    console.log(`   - Project ID: ${process.env.GCP_PROJECT_ID ? 'SET' : 'NOT SET'}`);
+    console.log(`   - Service Account: ${process.env.GCP_SERVICE_ACCOUNT_EMAIL ? 'SET' : 'NOT SET'}`);
+    console.log(`   - Private Key: ${process.env.GCP_PRIVATE_KEY ? 'SET' : 'NOT SET'}`);
+    console.log(`   - Bucket: ${process.env.GCS_BUCKET_NAME ? 'SET' : 'NOT SET'}`);
     try {
       const bucketName = process.env.GCS_BUCKET_NAME;
       const destFileName = `${Date.now()}-${path.basename(filePath)}`;
@@ -569,6 +614,44 @@ app.get('/api/parameters/:user_id', async (req, res) => {
     );
     res.json(params);
   } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// --- TEST GOOGLE CLOUD OCR ---
+app.post('/api/test-google-ocr', async (req, res) => {
+  const { document_id, user_id } = req.body;
+  try {
+    const { rows: docs } = await pool.query(
+      'SELECT * FROM documents WHERE id = $1 AND user_id = $2',
+      [document_id, user_id]
+    );
+    if (!docs.length) return res.status(404).json({ error: 'Nie znaleziono pliku' });
+
+    // Sprawdź różne lokalizacje pliku
+    let filePath = path.join(uploadDir, docs[0].filepath);
+    if (!fs.existsSync(filePath)) {
+      const alternativePath = docs[0].filepath;
+      if (fs.existsSync(alternativePath)) {
+        filePath = alternativePath;
+      } else {
+        return res.status(404).json({ error: 'Plik nie został znaleziony' });
+      }
+    }
+
+    console.log(`🧪 TEST: Wymuszam Google Cloud OCR dla pliku: ${docs[0].filename}`);
+    
+    // WYMUŚ Google Cloud OCR
+    const extractResult = await extractTextFromPDF(filePath, docs[0].symptoms, docs[0].chronic_diseases, docs[0].medications, true);
+    
+    res.json({ 
+      method: extractResult.method,
+      textLength: extractResult.text.length,
+      textPreview: extractResult.text.substring(0, 500) + '...',
+      isDirectAnalysis: extractResult.isDirectAnalysis
+    });
+  } catch (error) {
+    console.error('❌ Test Google Cloud OCR failed:', error);
     res.status(500).json({ error: error.message });
   }
 });
