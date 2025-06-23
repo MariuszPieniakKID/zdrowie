@@ -689,6 +689,33 @@ app.get('/api/parameters/:user_id', async (req, res) => {
   }
 });
 
+// --- MIGRACJA BAZY DANYCH ---
+app.post('/api/migrate-database', async (req, res) => {
+  try {
+    console.log('🔧 Uruchamiam migrację bazy danych...');
+    
+    // Sprawdź czy kolumna już istnieje
+    const checkColumn = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'documents' AND column_name = 'file_content'
+    `);
+    
+    if (checkColumn.rows.length > 0) {
+      return res.json({ message: 'Kolumna file_content już istnieje', status: 'already_exists' });
+    }
+    
+    // Dodaj kolumnę
+    await pool.query('ALTER TABLE documents ADD COLUMN file_content TEXT');
+    
+    console.log('✅ Migracja zakończona pomyślnie');
+    res.json({ message: 'Migracja zakończona pomyślnie', status: 'success' });
+  } catch (error) {
+    console.error('❌ Błąd migracji:', error);
+    res.status(500).json({ error: error.message, status: 'error' });
+  }
+});
+
 // --- TEST GOOGLE CLOUD OCR ---
 app.post('/api/test-google-ocr', async (req, res) => {
   const { document_id, user_id } = req.body;
