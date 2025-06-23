@@ -757,6 +757,8 @@ app.post('/api/test-google-ocr', async (req, res) => {
 // --- ZAAWANSOWANA ANALIZA - AGENT Z PAMIĘCIĄ ---
 app.post('/api/analyze-file', async (req, res) => {
   const { document_id, user_id } = req.body;
+  let filePath; // Przenieś deklarację na zewnątrz try/catch
+  
   try {
     const { rows: docs } = await pool.query(
       'SELECT * FROM documents WHERE id = $1 AND user_id = $2',
@@ -765,7 +767,6 @@ app.post('/api/analyze-file', async (req, res) => {
     if (!docs.length) return res.status(404).json({ error: 'Nie znaleziono pliku' });
 
     // Odtwórz plik z bazy danych do tymczasowej lokalizacji
-    let filePath;
     
     if (docs[0].file_content) {
       // Nowy system: plik zapisany w bazie danych
