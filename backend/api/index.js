@@ -402,19 +402,67 @@ async function extractTextFromPDF(filePath, symptoms = '', chronic_diseases = ''
   
   console.log('❌ Wszystkie metody OCR zawiodły');
   
-  // Ostatnia szansa: jeśli to obraz, spróbuj bezpośrednio GPT-4 Vision
+  // Ostatnia szansa: spróbuj GPT-4 Vision (dla obrazów lub jako fallback dla PDF)
   const fileExtension = path.extname(filePath).toLowerCase();
-  if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(fileExtension) && openai) {
-    console.log('🎯 Ostatnia szansa: GPT-4 Vision dla obrazu...');
-    const visionResult = await analyzeFileWithGPT4Vision(filePath, symptoms || '', chronic_diseases || '', medications || '');
-    
-    if (visionResult.success) {
-      console.log('✅ GPT-4 Vision sukces jako ostatnia opcja');
-      return {
-        text: visionResult.analysis,
-        method: 'GPT-4 Vision (fallback)',
-        isDirectAnalysis: true
-      };
+  if (openai) {
+    if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(fileExtension)) {
+      console.log('🎯 Ostatnia szansa: GPT-4 Vision dla obrazu...');
+      const visionResult = await analyzeFileWithGPT4Vision(filePath, symptoms || '', chronic_diseases || '', medications || '');
+      
+      if (visionResult.success) {
+        console.log('✅ GPT-4 Vision sukces jako ostatnia opcja');
+        return {
+          text: visionResult.analysis,
+          method: 'GPT-4 Vision (fallback)',
+          isDirectAnalysis: true
+        };
+      }
+    } else if (fileExtension === '.pdf') {
+      console.log('🎯 Ostatnia szansa: Próbuję analizę PDF bezpośrednio przez GPT-4 jako tekst...');
+      
+      // Spróbuj wysłać uszkodzony tekst do GPT-4 z instrukcją interpretacji
+      if (text && text.trim().length > 10) {
+        console.log('📝 Wysyłam uszkodzony tekst do GPT-4 z prośbą o interpretację...');
+        
+        try {
+          const response = await openai.chat.completions.create({
+            model: "gpt-4o",
+            messages: [{
+              role: "user",
+              content: `Jestem lekarzem i próbuję przeanalizować wyniki badań medycznych. Otrzymałem tekst z PDF, który może być uszkodzony lub źle wyekstraktowany przez OCR. 
+
+KONTEKST PACJENTA:
+- Symptomy: ${symptoms || 'brak'}
+- Choroby przewlekłe: ${chronic_diseases || 'brak'}  
+- Leki: ${medications || 'brak'}
+
+ZADANIE: Spróbuj zinterpretować poniższy tekst i wyciągnąć z niego wszystkie możliwe parametry medyczne/laboratoryjne. Jeśli tekst jest całkowicie nieczytelny, napisz "TEKST NIECZYTELNY".
+
+TEKST Z PDF:
+${text}
+
+Podaj wyniki w tabeli HTML z kolumnami: Parametr, Wartość, Komentarz, Data badania.`
+            }],
+            max_tokens: 2000,
+            temperature: 0.1
+          });
+
+          const analysis = response.choices[0].message.content;
+          
+          if (!analysis.includes('TEKST NIECZYTELNY')) {
+            console.log('✅ GPT-4 zdołał zinterpretować uszkodzony tekst!');
+            return {
+              text: analysis,
+              method: 'GPT-4 (interpretacja uszkodzonego tekstu)',
+              isDirectAnalysis: true
+            };
+          } else {
+            console.log('❌ GPT-4 stwierdził że tekst jest nieczytelny');
+          }
+        } catch (error) {
+          console.log('❌ GPT-4 interpretacja failed:', error.message);
+        }
+      }
     }
   }
   
