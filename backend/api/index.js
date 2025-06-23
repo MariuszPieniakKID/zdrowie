@@ -392,13 +392,19 @@ async function extractTextFromPDF(filePath, symptoms = '', chronic_diseases = ''
   
   console.log('⚠️ Próbowałbym Tesseract OCR, ale nie działa na Vercel...');
   
-  // Tesseract jako ostatnia opcja (ale nie działa na Vercel)
-  text = await extractTextWithTesseract(filePath);
+  // Zachowaj oryginalny tekst z pdf-parse przed próbą Tesseract
+  const originalPdfParseText = text;
   
-  if (text && text.trim().length > 20) {
+  // Tesseract jako ostatnia opcja (ale nie działa na Vercel)
+  const tesseractText = await extractTextWithTesseract(filePath);
+  
+  if (tesseractText && tesseractText.trim().length > 20) {
     console.log('✅ Tesseract OCR sukces');
-    return { text, method: 'Tesseract', isDirectAnalysis: false };
+    return { text: tesseractText, method: 'Tesseract', isDirectAnalysis: false };
   }
+  
+  // Przywróć oryginalny tekst z pdf-parse dla fallback GPT-4
+  text = originalPdfParseText;
   
   console.log('❌ Wszystkie metody OCR zawiodły');
   
@@ -419,6 +425,11 @@ async function extractTextFromPDF(filePath, symptoms = '', chronic_diseases = ''
       }
     } else if (fileExtension === '.pdf') {
       console.log('🎯 Ostatnia szansa: Próbuję analizę PDF bezpośrednio przez GPT-4 jako tekst...');
+      console.log(`🔍 DEBUG: text jest ${text ? 'zdefiniowany' : 'null/undefined'}`);
+      if (text) {
+        console.log(`🔍 DEBUG: text.length = ${text.length}, text.trim().length = ${text.trim().length}`);
+        console.log(`🔍 DEBUG: pierwsze 50 znaków: "${text.substring(0, 50)}"`);
+      }
       
       // Spróbuj wysłać uszkodzony tekst do GPT-4 z instrukcją interpretacji
       if (text && text.trim().length > 10) {
