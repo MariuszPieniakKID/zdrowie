@@ -1,0 +1,688 @@
+/* Modern Components Styles for MedAnalyzer */
+@import './variables';
+
+/* Modern Container */
+.modern-container {
+  background: $bg-primary;
+  min-height: 100vh;
+  font-family: $font-family;
+  color: $text-primary;
+  position: relative;
+  overflow-x: hidden;
+
+  &::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(ellipse at center, rgba(103, 126, 234, 0.1) 0%, transparent 70%);
+    z-index: -1;
+    pointer-events: none;
+  }
+}
+
+/* Animated Background Elements */
+.bg-particles {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.particle {
+  position: absolute;
+  border-radius: $border-radius-full;
+  background: $primary-gradient;
+  opacity: 0.1;
+  animation: float 20s ease-in-out infinite;
+
+  &:nth-child(1) {
+    width: 80px;
+    height: 80px;
+    top: 20%;
+    left: 10%;
+    animation-delay: -5s;
+  }
+
+  &:nth-child(2) {
+    width: 60px;
+    height: 60px;
+    top: 60%;
+    right: 15%;
+    animation-delay: -10s;
+  }
+
+  &:nth-child(3) {
+    width: 100px;
+    height: 100px;
+    bottom: 20%;
+    left: 30%;
+    animation-delay: -15s;
+  }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-20px) rotate(90deg); }
+  50% { transform: translateY(-10px) rotate(180deg); }
+  75% { transform: translateY(-30px) rotate(270deg); }
+}
+
+/* Modern Page Header */
+.modern-page-header {
+  text-align: center;
+  margin-bottom: 3rem;
+  padding: 2rem 0;
+}
+
+.modern-page-title {
+  font-size: 2.5rem;
+  font-weight: 800;
+  margin-bottom: 1rem;
+  background: $primary-gradient;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.02em;
+}
+
+.modern-page-subtitle {
+  font-size: 1.2rem;
+  color: $text-secondary;
+  max-width: 600px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+/* Modern Cards */
+.modern-card {
+  background: $bg-glass;
+  backdrop-filter: blur(20px);
+  border: 1px solid $border-color;
+  border-radius: $border-radius-xl;
+  padding: 2rem;
+  box-shadow: $shadow-lg;
+  transition: $transition-ease;
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: $primary-gradient;
+  }
+
+  &:hover {
+    transform: translateY(-5px);
+    box-shadow: $shadow-xl;
+    border-color: $accent-blue;
+    background: rgba(255, 255, 255, 0.15);
+  }
+}
+
+.modern-card-small {
+  padding: 1.5rem;
+  border-radius: $border-radius-lg;
+}
+
+/* Modern Form Elements */
+.modern-form {
+  max-width: 600px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.modern-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.modern-label {
+  font-weight: 600;
+  color: $text-primary;
+  font-size: 0.875rem;
+  letter-spacing: 0.025em;
+  display: flex;
+  align-items: center;
+}
+
+.modern-input,
+.modern-textarea {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  border: 1px solid $border-color;
+  border-radius: $border-radius-md;
+  padding: 1rem 1.25rem;
+  color: $text-primary;
+  font-size: 1rem;
+  transition: $transition-ease;
+  font-family: $font-family;
+
+  &:focus {
+    outline: none;
+    border-color: $accent-blue;
+    background: rgba(255, 255, 255, 0.25);
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+  }
+
+  &::placeholder {
+    color: $text-muted;
+  }
+}
+
+.modern-textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+/* Modern Buttons */
+.modern-btn {
+  background: $primary-gradient;
+  border: none;
+  color: white;
+  padding: 1rem 2rem;
+  border-radius: $border-radius-md;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: $transition-ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  text-decoration: none;
+  font-family: $font-family;
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s;
+  }
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: $shadow-lg, $shadow-glow;
+
+    &::before {
+      left: 100%;
+    }
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+  }
+}
+
+.modern-btn-secondary {
+  background: $bg-glass;
+  color: $text-primary;
+  border: 1px solid $border-color;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.18);
+    border-color: $accent-blue;
+  }
+}
+
+.modern-btn-danger {
+  background: $danger-gradient;
+}
+
+.modern-btn-success {
+  background: $success-gradient;
+}
+
+.modern-btn-small {
+  padding: 0.75rem 1.5rem;
+  font-size: 0.875rem;
+}
+
+.modern-btn-icon {
+  padding: 0.75rem;
+  width: auto;
+  height: auto;
+}
+
+/* File Upload */
+.modern-upload-area {
+  background: $bg-glass;
+  backdrop-filter: blur(20px);
+  border: 2px dashed $border-color;
+  border-radius: $border-radius-xl;
+  padding: 3rem;
+  text-align: center;
+  cursor: pointer;
+  transition: $transition-ease;
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: $primary-gradient;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  &:hover {
+    border-color: $accent-blue;
+    background: rgba(255, 255, 255, 0.15);
+
+    &::before {
+      opacity: 0.05;
+    }
+  }
+}
+
+.modern-upload-icon {
+  font-size: 3rem;
+  color: $accent-blue;
+  margin-bottom: 1rem;
+  position: relative;
+  z-index: 1;
+}
+
+.modern-upload-text {
+  font-size: 1.1rem;
+  color: $text-secondary;
+  font-weight: 500;
+  position: relative;
+  z-index: 1;
+}
+
+.modern-upload-subtext {
+  font-size: 0.9rem;
+  color: $text-muted;
+  margin-top: 0.5rem;
+  position: relative;
+  z-index: 1;
+}
+
+/* File Items */
+.modern-file-item {
+  background: $bg-glass;
+  backdrop-filter: blur(20px);
+  border: 1px solid $border-color;
+  border-radius: $border-radius-lg;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+  transition: $transition-ease;
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 3px;
+    height: 100%;
+    background: $primary-gradient;
+  }
+
+  &:hover {
+    transform: translateX(5px);
+    border-color: $accent-blue;
+    box-shadow: $shadow-md;
+    background: rgba(255, 255, 255, 0.15);
+  }
+}
+
+.modern-file-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.modern-file-name {
+  font-weight: 600;
+  color: $text-primary;
+  font-size: 1rem;
+  flex: 1;
+  margin-right: 1rem;
+}
+
+.modern-file-date {
+  color: $text-muted;
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.modern-file-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+/* Pagination */
+.modern-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding: 1rem;
+}
+
+.modern-pagination-info {
+  color: $text-secondary;
+  font-weight: 500;
+  background: $bg-glass;
+  padding: 0.5rem 1rem;
+  border-radius: $border-radius-xl;
+  border: 1px solid $border-light;
+}
+
+/* Modal */
+.modern-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 2rem;
+}
+
+.modern-modal-content {
+  background: $bg-secondary;
+  border: 1px solid $border-color;
+  border-radius: $border-radius-xl;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: $shadow-xl;
+  position: relative;
+}
+
+.modern-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2rem 2rem 1rem;
+  border-bottom: 1px solid $border-color;
+}
+
+.modern-modal-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: $text-primary;
+}
+
+.modern-modal-close {
+  background: none;
+  border: none;
+  color: $text-muted;
+  font-size: 2rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: $border-radius-sm;
+  transition: $transition-ease;
+
+  &:hover {
+    color: $text-primary;
+    background: $bg-glass;
+  }
+}
+
+.modern-modal-body {
+  padding: 2rem;
+}
+
+/* Analysis Display */
+.modern-analysis-section {
+  margin-bottom: 2rem;
+
+  h3 {
+    color: $text-primary;
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid $border-color;
+  }
+}
+
+.modern-analysis-content {
+  color: $text-primary;
+  line-height: 1.6;
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    background: $bg-secondary;
+    border-radius: $border-radius-md;
+    overflow: hidden;
+    border: 1px solid $border-color;
+  }
+
+  th,
+  td {
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 1px solid $border-light;
+    color: $text-primary;
+  }
+
+  th {
+    background: $bg-tertiary;
+    font-weight: 600;
+    color: $text-primary;
+  }
+
+  p {
+    color: $text-primary;
+    margin-bottom: 1rem;
+  }
+
+  strong {
+    color: $text-primary;
+  }
+
+  ul {
+    color: $text-primary;
+  }
+
+  li {
+    color: $text-primary;
+    margin-bottom: 0.5rem;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    color: $text-primary;
+  }
+}
+
+/* Danger Zone */
+.modern-danger-zone {
+  margin-top: 3rem;
+  padding: 2rem;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: $border-radius-lg;
+}
+
+.modern-danger-title {
+  color: $accent-red;
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.modern-danger-description {
+  color: $text-light;
+  font-size: 0.875rem;
+  margin-top: 1rem;
+  line-height: 1.5;
+}
+
+/* Loading States */
+.modern-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: inherit;
+}
+
+.modern-spinner {
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid currentColor;
+  border-radius: $border-radius-full;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Error Messages */
+.modern-error {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+  padding: 1rem 1.5rem;
+  border-radius: $border-radius-md;
+  margin: 1rem 0;
+  font-weight: 500;
+}
+
+/* Success Messages */
+.modern-success {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #6ee7b7;
+  padding: 1rem 1.5rem;
+  border-radius: $border-radius-md;
+  margin: 1rem 0;
+  font-weight: 500;
+}
+
+/* Empty State */
+.modern-empty-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: $text-muted;
+}
+
+.modern-empty-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+  color: $text-muted;
+}
+
+.modern-empty-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: $text-secondary;
+}
+
+.modern-empty-description {
+  font-size: 1rem;
+  line-height: 1.6;
+  color: $text-muted;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .modern-page-title {
+    font-size: 2rem;
+  }
+  
+  .modern-card {
+    padding: 1.5rem;
+  }
+  
+  .modern-form {
+    gap: 1.5rem;
+  }
+  
+  .modern-file-header {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .modern-file-actions {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .modern-btn {
+    width: 100%;
+  }
+  
+  .modern-upload-area {
+    padding: 2rem;
+  }
+  
+  .modern-modal-overlay {
+    padding: 1rem;
+  }
+  
+  .modern-modal-header,
+  .modern-modal-body {
+    padding: 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .modern-page-title {
+    font-size: 1.75rem;
+  }
+  
+  .modern-card {
+    padding: 1rem;
+  }
+  
+  .modern-upload-area {
+    padding: 1.5rem;
+  }
+  
+  .modern-upload-icon {
+    font-size: 2rem;
+  }
+}
+

@@ -1,0 +1,46 @@
+declare module 'react-icons/fa' {
+  import { IconType } from 'react-icons';
+  export const FaRocket: IconType;
+  export const FaChartLine: IconType;
+  export const FaBrain: IconType;
+  export const FaShieldAlt: IconType;
+  export const FaUsers: IconType;
+  export const FaClock: IconType;
+  export const FaHeart: IconType;
+  export const FaFlask: IconType;
+  export const FaMicroscope: IconType;
+  export const FaDna: IconType;
+  export const FaSignOutAlt: IconType;
+  export const FaUser: IconType;
+  export const FaFileAlt: IconType;
+  export const FaHome: IconType;
+  export const FaUpload: IconType;
+  export const FaEye: IconType;
+  export const FaMobileAlt: IconType;
+  export const FaKey: IconType;
+  export const FaLock: IconType;
+  export const FaTrash: IconType;
+  export const FaCheckCircle: IconType;
+  export const FaExclamationTriangle: IconType;
+  export const FaEnvelope: IconType;
+  export const FaPhone: IconType;
+  export const FaSave: IconType;
+  export const FaTimes: IconType;
+  export const FaUserEdit: IconType;
+  export const FaCertificate: IconType;
+  export const FaTrashAlt: IconType;
+  export const FaInfoCircle: IconType;
+  export const FaFilePdf: IconType;
+  export const FaMicrophone: IconType;
+  export const FaPrescriptionBottleAlt: IconType;
+  export const FaHeartbeat: IconType;
+  export const FaCloudUploadAlt: IconType;
+  export const FaFileImage: IconType;
+  export const FaCheckSquare: IconType;
+  export const FaSquare: IconType;
+  export const FaChartBar: IconType;
+  export const FaTable: IconType;
+  export const FaCaretDown: IconType;
+  export const FaCaretRight: IconType;
+}
+
